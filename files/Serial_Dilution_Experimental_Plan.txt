@@ -1,0 +1,139 @@
+================================================================================
+SERIAL DILUTION EXPERIMENTAL PLAN
+2-Fold Serial Dilution Across 96-Well Plate (12 Columns)
+================================================================================
+
+OBJECTIVE:
+Generate a 2-fold serial dilution series from 1000 µM to 0.488 µM (12 dilutions)
+using a Hamilton MICROLAB STAR or similar automated liquid handler.
+
+================================================================================
+DILUTION SCHEME & CONCENTRATIONS
+================================================================================
+
+Column    Well Position    Fold Dilution    Concentration    Description
+--------  ---------------  ---------------  ----------------  --------------------
+Col 1     A1-H1           1x (Stock)       1000.000 µM       Stock solution
+Col 2     A2-H2           2x               500.000 µM        1:2 dilution
+Col 3     A3-H3           4x               250.000 µM        1:4 dilution
+Col 4     A4-H4           8x               125.000 µM        1:8 dilution
+Col 5     A5-H5           16x              62.500 µM         1:16 dilution
+Col 6     A6-H6           32x              31.250 µM         1:32 dilution
+Col 7     A7-H7           64x              15.625 µM         1:64 dilution
+Col 8     A8-H8           128x             7.813 µM          1:128 dilution
+Col 9     A9-H9           256x             3.906 µM          1:256 dilution
+Col 10    A10-H10         512x             1.953 µM          1:512 dilution
+Col 11    A11-H11         1024x            0.977 µM          1:1024 dilution
+Col 12    A12-H12         2048x            0.488 µM          1:2048 dilution
+
+================================================================================
+REAGENT VOLUMES & CALCULATIONS
+================================================================================
+
+PLATE SETUP:
+- Plate Format: 96-well flat-bottom plate
+- Total wells per column: 8 (rows A-H)
+- Total columns: 12
+- Replicates: 8 (one per row)
+
+VOLUME STRATEGY:
+- Dilution volume per well: 100 µL (final volume)
+- Transfer volume (diluent to new well): 50 µL
+- Transfer volume (previous concentration): 50 µL
+- Ratio: 1:1 (50:50) = 2-fold dilution
+
+================================================================================
+REAGENT REQUIREMENTS
+================================================================================
+
+1. STOCK SOLUTION (Column 1)
+   - Initial concentration: 1000 µM
+   - Prepare in diluent before running protocol
+   - Volume needed: 50 µL × 8 wells = 400 µL
+   - PLUS extra for dead volume: 600 µL total recommended
+
+2. DILUENT (typically PBS, water, or specified buffer)
+   - Column 2: 50 µL × 8 wells = 400 µL
+   - Column 3: 50 µL × 8 wells = 400 µL
+   - Column 4: 50 µL × 8 wells = 400 µL
+   - Column 5: 50 µL × 8 wells = 400 µL
+   - Column 6: 50 µL × 8 wells = 400 µL
+   - Column 7: 50 µL × 8 wells = 400 µL
+   - Column 8: 50 µL × 8 wells = 400 µL
+   - Column 9: 50 µL × 8 wells = 400 µL
+   - Column 10: 50 µL × 8 wells = 400 µL
+   - Column 11: 50 µL × 8 wells = 400 µL
+   - Column 12: 50 µL × 8 wells = 400 µL
+   ---
+   Total diluent needed: 4400 µL (4.4 mL) + buffer for aspiration inefficiency
+   RECOMMENDED TOTAL: 5.5 mL (to account for ~20% dead volume)
+
+3. STOCK SOLUTION TRANSFER VOLUMES
+   - Column 1→2: 50 µL × 8 = 400 µL transferred (already in stock volume)
+   - Column 2→3: 50 µL × 8 = 400 µL transferred
+   - Column 3→4: 50 µL × 8 = 400 µL transferred
+   - Column 4→5: 50 µL × 8 = 400 µL transferred
+   - Column 5→6: 50 µL × 8 = 400 µL transferred
+   - Column 6→7: 50 µL × 8 = 400 µL transferred
+   - Column 7→8: 50 µL × 8 = 400 µL transferred
+   - Column 8→9: 50 µL × 8 = 400 µL transferred
+   - Column 9→10: 50 µL × 8 = 400 µL transferred
+   - Column 10→11: 50 µL × 8 = 400 µL transferred
+   - Column 11→12: 50 µL × 8 = 400 µL transferred
+
+================================================================================
+MASTER MIX REAGENT SUMMARY TABLE
+================================================================================
+
+Reagent               Volume Needed    Container    Concentration
+-------------------  ---------------  -----------  ----------------
+Stock Solution        600 µL           Tube         1000 µM
+Diluent (Buffer)      5.5 mL           Reservoir    N/A
+
+================================================================================
+PROTOCOL SEQUENCE
+================================================================================
+
+STEP 1: Load Reagents
+- Position 1: Stock solution tube (600 µL)
+- Position 2: Diluent reservoir (5.5 mL minimum)
+- Position 3: 96-well plate (empty, ready for dilutions)
+
+STEP 2: Pre-Dilution Setup
+- Aspirate 50 µL diluent into columns 2-12 (all 8 wells each)
+- This provides the initial diluent in each well
+
+STEP 3: Serial Transfer
+- Transfer 50 µL from Column 1 (stock) → Column 2
+- Transfer 50 µL from Column 2 → Column 3
+- Transfer 50 µL from Column 3 → Column 4
+- Continue through Column 12
+- Mix after each transfer if required
+
+STEP 4: Verification
+- Final volume per well: 100 µL (50 µL original + 50 µL transfer)
+- Document concentrations for downstream analysis
+
+================================================================================
+EXPECTED OUTCOMES
+================================================================================
+
+✓ 12 dilution points covering 4 log concentration range
+✓ 2-fold dilution factor (each concentration = 50% of previous)
+✓ 8 replicates per concentration (rows A-H)
+✓ Linear decrease in concentration across columns
+✓ Suitable for dose-response or titration experiments
+
+================================================================================
+NOTES & TROUBLESHOOTING
+================================================================================
+
+• Tip Changes: Use fresh tips for each transfer to prevent carryover
+• Mixing: Consider adding mix steps after each transfer for better homogeneity
+• Accuracy: Verify pipetting accuracy with positive control experiments
+• Plate Orientation: Confirm plate orientation before running protocol
+• Temperature: Maintain room temperature for most solutions (adjust if needed)
+• Incubation: If required, add incubation steps between transfers
+• Dead Volume: Account for ~20% dead volume in reservoirs and tubes
+
+================================================================================

@@ -1,0 +1,316 @@
+{
+  "protocol": {
+    "name": "Serial Dilution Protocol",
+    "description": "Automated 2-fold serial dilution using Hamilton liquid handler",
+    "version": "1.0",
+    "author": "PyLabRobot Protocol Generator"
+  },
+
+  "dilution_parameters": {
+    "stock_concentration_um": 1000,
+    "dilution_factor": 2,
+    "num_columns": 12,
+    "num_rows": 8,
+    "final_volume_ul": 100,
+    "transfer_volume_ul": 50,
+    "diluent_volume_ul": 50,
+    "description": "2-fold serial dilution from 1000 µM to 0.488 µM across 12 columns with 8 replicates"
+  },
+
+  "plate_specifications": {
+    "manufacturer": "Corning",
+    "product_name": "Corning® 96-well Flat Bottom Microplate",
+    "product_code": "3595",
+    "well_format": "96-well",
+    "surface_coating": "TC treated polystyrene",
+    "geometry": {
+      "format": "8 rows × 12 columns",
+      "row_count": 8,
+      "column_count": 12,
+      "well_spacing_mm": 9,
+      "plate_width_mm": 127,
+      "plate_length_mm": 85,
+      "plate_height_mm": 10.67
+    },
+    "well_specifications": {
+      "well_diameter_mm": 6.86,
+      "well_depth_mm": 10.67,
+      "well_volume_range": {
+        "min_ul": 5,
+        "max_ul": 360,
+        "working_volume_ul": 340,
+        "assay_volume_ul": 100
+      },
+      "bottom_type": "Flat",
+      "material": "Polystyrene",
+      "optical_properties": "Clear/Transparent"
+    },
+    "sterility": "Sterile",
+    "pyrogen_level": "<0.01 EU/mL",
+    "surface_tension": "Low binding",
+    "features": [
+      "TC (Tissue Culture) treated",
+      "Pre-sterilized",
+      "Ultra-low evaporation lid included",
+      "Optimal for automated liquid handling"
+    ],
+    "barcode": "2D DataMatrix",
+    "storage_temperature": "15-25°C"
+  },
+
+  "hamilton_tips": {
+    "tip_type": "Standard Volume Multi-Channel Tips",
+    "manufacturer": "Hamilton",
+    "product_line": "RoboTip®",
+    "specifications": {
+      "capacity_ul": 200,
+      "minimum_volume_ul": 2,
+      "maximum_volume_ul": 200,
+      "accuracy_range": "10-200 µL",
+      "volume_ranges": [
+        {
+          "range_ul": "2-10",
+          "cv_percent": "7.5"
+        },
+        {
+          "range_ul": "10-50",
+          "cv_percent": "4.0"
+        },
+        {
+          "range_ul": "50-200",
+          "cv_percent": "2.0"
+        }
+      ]
+    },
+    "physical_specifications": {
+      "length_mm": 59.3,
+      "outer_diameter_mm": 2.4,
+      "inner_diameter_mm": 1.6,
+      "material": "Polypropylene",
+      "surface_coating": "Ultra-Slip (low friction, reduced protein binding)",
+      "tip_color": "Clear/Natural"
+    },
+    "compatibility": {
+      "hamilton_models": [
+        "MICROLAB STAR",
+        "VANTAGE",
+        "INTERPRETER™",
+        "STARlet®",
+        "NIMBUS"
+      ],
+      "head_type": "8-channel or 96-channel",
+      "deck_positions": "Standard Hamilton tip rack compatibility"
+    },
+    "features": [
+      "Enhanced accuracy and precision",
+      "Ultra-Slip coating reduces protein binding",
+      "Sterile and pyrogen-free",
+      "Individually wrapped in paper/plastic",
+      "Ready-to-use format",
+      "Compatible with aqueous and organic solutions"
+    ],
+    "packaging": {
+      "format": "96 tips per rack",
+      "sterility": "Sterile",
+      "pyrogen_level": "<0.01 EU/tip"
+    },
+    "storage": {
+      "temperature_c": "15-25",
+      "humidity_percent": "30-70",
+      "shelf_life_months": 24
+    }
+  },
+
+  "alternative_tips": {
+    "1000ul_tips": {
+      "product": "Hamilton RoboTip® 1000 µL",
+      "capacity_ul": 1000,
+      "minimum_volume_ul": 10,
+      "maximum_volume_ul": 1000,
+      "use_case": "For larger volume transfers and reservoir handling"
+    },
+    "filtertips": {
+      "product": "Hamilton RoboTip® 200 µL with Filter",
+      "capacity_ul": 200,
+      "filter_type": "Aerosol barrier filter",
+      "use_case": "For PCR and sensitive applications requiring contamination prevention"
+    },
+    "low_protein_binding": {
+      "product": "Hamilton RoboTip® LpB (Low Protein Binding)",
+      "capacity_ul": 200,
+      "coating": "Special surface treatment",
+      "use_case": "For protein handling and sensitive biological samples"
+    }
+  },
+
+  "reagent_containers": {
+    "stock_tube": {
+      "type": "Screw-cap tube",
+      "volume_ul": 15000,
+      "material": "Polypropylene",
+      "size": "15 mL",
+      "cap_type": "Screw cap",
+      "description": "For stock solution storage (1000 µM)"
+    },
+    "diluent_reservoir": {
+      "type": "Deep-well reservoir",
+      "volume_ul": 50000,
+      "material": "Polypropylene",
+      "size": "50 mL",
+      "well_depth_mm": 60,
+      "description": "For diluent/buffer storage",
+      "features": [
+        "Graduated markings",
+        "Vented cap",
+        "Compatible with Hamilton multi-channel pipetting"
+      ]
+    }
+  },
+
+  "deck_configuration": {
+    "platform": "Hamilton MICROLAB STAR",
+    "deck_layout": [
+      {
+        "position": [0, 0],
+        "labware": "target_plate",
+        "type": "Corning 96-well Plate",
+        "description": "Primary plate for serial dilution (empty, ready for dilutions)"
+      },
+      {
+        "position": [1, 0],
+        "labware": "tip_rack_1",
+        "type": "Hamilton 96-tip Rack",
+        "capacity": 96,
+        "tip_type": "RoboTip 200 µL",
+        "description": "Tip rack for serial transfer operations"
+      },
+      {
+        "position": [2, 0],
+        "labware": "tip_rack_2",
+        "type": "Hamilton 96-tip Rack",
+        "capacity": 96,
+        "tip_type": "RoboTip 200 µL",
+        "description": "Tip rack for diluent dispensing"
+      },
+      {
+        "position": [3, 0],
+        "labware": "stock_tube",
+        "type": "15 mL Screw-cap Tube",
+        "description": "Stock solution (1000 µM)"
+      },
+      {
+        "position": [4, 0],
+        "labware": "diluent_reservoir",
+        "type": "50 mL Deep-well Reservoir",
+        "description": "Diluent/buffer storage"
+      }
+    ]
+  },
+
+  "liquid_handling": {
+    "pipetting_parameters": {
+      "liquid_class": "Water",
+      "aspiration_speed_ul_s": 25,
+      "dispensing_speed_ul_s": 25,
+      "mix_cycles": 3,
+      "mix_volume_ul": 40,
+      "air_gap_ul": 5,
+      "pre_wet": false,
+      "mix_after_dispense": true
+    },
+    "tip_management": {
+      "tip_reuse": false,
+      "air_gap_after_aspirate_ul": 5,
+      "drip_delay_ms": 100,
+      "tip_touch": false
+    },
+    "delays": {
+      "aspirate_settling_ms": 200,
+      "dispense_settling_ms": 200,
+      "inter_tip_delay_ms": 100,
+      "mix_delay_ms": 200
+    }
+  },
+
+  "reagent_requirements": {
+    "stock_solution": {
+      "concentration_um": 1000,
+      "volume_required_ul": 400,
+      "volume_recommended_ul": 600,
+      "buffer": "Add 20% for dead volume",
+      "storage_temperature": "2-8°C",
+      "stability_days": 30
+    },
+    "diluent": {
+      "type": "PBS or equivalent buffer",
+      "volume_required_ul": 4400,
+      "volume_recommended_ul": 5500,
+      "pH": 7.4,
+      "osmolarity_mosm_l": 310,
+      "sterile": true,
+      "endotoxin_level_eu_ml": "<0.05",
+      "filter_sterilized": true
+    }
+  },
+
+  "quality_control": {
+    "verification_steps": [
+      "Verify plate orientation before running",
+      "Confirm tip rack loading in correct positions",
+      "Check diluent level in reservoir",
+      "Validate stock solution concentration",
+      "Perform calibration check on liquid handler"
+    ],
+    "accuracy_targets": {
+      "cv_percent_max": 3.0,
+      "accuracy_percent_target": 98,
+      "volume_tolerance_percent": 2
+    },
+    "documentation": {
+      "log_file": "serial_dilution_protocol_log.txt",
+      "save_concentration_data": true,
+      "save_well_images": false,
+      "timestamp_all_operations": true
+    }
+  },
+
+  "experimental_design": {
+    "application": "Dose-response curve / Titration experiment",
+    "endpoint": "12 dilution points covering 4-log concentration range",
+    "dynamic_range": "1000x dilution across series",
+    "replicates_per_concentration": 8,
+    "total_wells": 96,
+    "suitable_for": [
+      "Binding assays (ELISA, immunoassay)",
+      "Cell viability assays",
+      "Enzymatic assays",
+      "Receptor binding studies",
+      "Dose-response curves",
+      "IC50 determination",
+      "Pharmacokinetic studies"
+    ]
+  },
+
+  "logging": {
+    "log_level": "INFO",
+    "output_formats": ["txt", "json", "csv"],
+    "include_in_log": [
+      "timestamp",
+      "operation_name",
+      "source_location",
+      "destination_location",
+      "volume_ul",
+      "tip_id",
+      "status"
+    ]
+  },
+
+  "system_settings": {
+    "simulator_mode": true,
+    "verbose_output": true,
+    "dry_run": false,
+    "hardware_mode": false,
+    "connection_timeout_seconds": 30,
+    "error_handling": "continue"
+  }
+}
