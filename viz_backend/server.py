@@ -456,8 +456,14 @@ def editor_labware():
 
 @app.route("/api/editor/verify", methods=["POST"])
 def editor_verify():
-    """Verify the workspace plan (saved by the editor) against the built-in deck and library."""
+    """Save the posted plan to the workspace, then verify it against the built-in deck and library.
+
+    The body is the plan as the editor currently shows it, so verifying never depends on a separate save.
+    """
     try:
+        body = request.get_json(silent=True)
+        if isinstance(body, dict):
+            save_workspace_plan(body)
         texts = default_texts()
         texts["protocol_plan"] = json.dumps(load_workspace_plan())
         return jsonify(run_verification(texts))

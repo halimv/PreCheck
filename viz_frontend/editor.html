@@ -449,9 +449,13 @@ function dropAt(e, at) {
     const payload = e.dataTransfer.getData("text/plain");
     dragEnd();
     if (payload.startsWith("new:")) {
-        plan.steps.splice(at, 0, newStep(payload.slice(4)));
+        const action = payload.slice(4);
+        if (!ACTIONS[action]) return;
+        plan.steps.splice(at, 0, newStep(action));
     } else if (payload.startsWith("step:")) {
+        // Ignore stale indexes: splicing past the end would insert undefined into the plan.
         const from = Number(payload.slice(5));
+        if (!Number.isInteger(from) || from < 0 || from >= plan.steps.length) return;
         const [moved] = plan.steps.splice(from, 1);
         plan.steps.splice(at > from ? at - 1 : at, 0, moved);
     } else {
@@ -619,14 +623,18 @@ function exportPlan() {
 async function verify() {
     $("verify-btn").disabled = true;
     verifying = true;
+    clearTimeout(saveTimer);
+    saveTimer = null;
     try {
-        // Verify what is on the backend, so the save has to succeed first.
-        if (!await saveNow()) throw new Error("the plan could not be saved, so it was not verified");
-        const res = await fetch(`${API}/editor/verify`, { method: "POST" });
-        verification = await res.json();
+        // The server saves the plan and verifies that same plan in one request.
+        const res = await fetch(`${API}/editor/verify`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(plan),
+        });
+        verification = await res.json().catch(() => ({ status: "ERROR", message: `Server returned HTTP ${res.status}` }));
         if (verification.file_errors?.protocol_plan) fileErrors = verification.file_errors.protocol_plan;
+        if (verification.status !== "ERROR") setSaveStatus("", "Saved to backend");
     } catch (err) {
-        verification = { status: "ERROR", message: err.message };
+        verification = { status: "ERROR", message: `Couldn't reach the server: ${err.message}` };
     } finally {
         verifying = false;
         $("verify-btn").disabled = false;
