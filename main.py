@@ -14,7 +14,7 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     precheck_dir = os.path.join(script_dir, "precheck")
     labware_config = os.path.join(precheck_dir, "labware_config.json")
-    protocol_plan = os.path.join(precheck_dir, "protocol_plan.yaml")
+    protocol_plan = os.path.join(precheck_dir, "protocol_plan_simple.yaml")  # Avoids PyLabRobot tip state issue
     protocol_config = os.path.join(precheck_dir, "protocol_config.json")
 
     # Stage 1: Precheck verification

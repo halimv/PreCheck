@@ -1,22 +1,20 @@
 """
 Hamilton simulator integration via PyLabRobot.
 
-Executes precheck-verified protocols in PyLabRobot's Hamilton simulator
+Executes precheck-verified protocols in PyLabRobot's real STARlet simulator
 to validate runtime behavior (deck layout, tip mechanics, volume tracking).
 """
 
+import asyncio
 import json
+import os
 import yaml
 from typing import Dict, Any, List
-from pylabrobot.hamilton import Hamilton
-from pylabrobot.resources import (
-    hamilton_star_mapping,
-    TipRack,
-    Plate,
-    Resource,
-)
-from pylabrobot.resources.hamilton import STARResource
-from pylabrobot.liquid_handler import LiquidHandler
+from pylabrobot.hamilton.star import STARlet
+import pylabrobot.resources as plr
+from pylabrobot.resources import Coordinate
+from pylabrobot.resources.corning import cor_96_wellplate_360uL_Fb
+from pylabrobot.resources.hamilton import hamilton_96_tiprack_300uL
 
 
 class SimulatorError(Exception):
@@ -26,44 +24,63 @@ class SimulatorError(Exception):
 
 class HamiltonSimulator:
     """
-    Executes precheck protocols in PyLabRobot's Hamilton simulator.
+    Executes precheck protocols in PyLabRobot's Hamilton STARlet simulator.
 
-    Takes a precheck-verified protocol (YAML) and translates it to PyLabRobot calls,
-    executing in the simulator to validate:
-    - Deck layout validity
-    - Tip pickup/dispense mechanics
-    - Volume accounting at runtime
-    - Liquid tracking state
+    Uses the real STARlet simulator (not chatterbox mock) for proper state tracking.
+    This matches AHC's approach and provides full deck visualization + state management.
     """
 
-    def __init__(self, labware_config_path: str, protocol_plan_path: str):
+    def __init__(self, labware_config_path: str, protocol_plan_path: str, hardware_config_path: str = None):
         """
-        Initialize simulator with labware specs and protocol plan.
+        Initialize simulator with labware specs, protocol plan, and hardware config.
 
         Args:
-            labware_config_path: Path to labware_config.json (hardware specs)
+            labware_config_path: Path to labware_config.json (safety specs)
             protocol_plan_path: Path to protocol_plan.yaml (precheck-verified protocol)
+            hardware_config_path: Path to hardware_config.json (deck layout). Auto-discovers if not provided.
         """
         with open(labware_config_path, "r") as f:
             self.labware_lib = json.load(f)
         with open(protocol_plan_path, "r") as f:
             self.plan = yaml.safe_load(f)
 
-        # Initialize Hamilton robot with simulator backend
-        self.robot = Hamilton(backend=hamilton_star_mapping())
-        self.execution_log = []
+        # Load hardware config (auto-discover if not provided)
+        if hardware_config_path is None:
+            plan_dir = os.path.dirname(protocol_plan_path)
+            hardware_config_path = os.path.join(plan_dir, "hardware_config.json")
+
+        with open(hardware_config_path, "r") as f:
+            self.hardware_config = json.load(f)
+
+        # Use first hardware configuration by default (Hamilton STAR)
+        self.hw_config = self.hardware_config["hardware_configurations"][0]
+
+        # Create STARlet deck (will initialize device in _setup_deck)
+        self.deck = plr.STARLetDeck()
+        self.device = None  # Initialized in _setup_deck
+
+        self.execution_log: List[Dict[str, Any]] = []
+        self.tip_rack = None
+        self.plate = None
 
     def run_simulation(self) -> Dict[str, Any]:
-        """
-        Execute protocol in simulator.
-
-        Returns:
-            Dict with status, execution log, and any runtime errors.
-        """
+        """Execute protocol in simulator."""
         try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(self._run_async())
+            return result
+        finally:
+            loop.close()
+
+    async def _run_async(self) -> Dict[str, Any]:
+        """Execute protocol asynchronously."""
+        try:
+            await self._setup_deck()
             steps = self.plan.get("steps", [])
+
             for step_data in steps:
-                self._execute_step(step_data)
+                await self._execute_step(step_data)
 
             return {
                 "status": "PASSED",
@@ -80,17 +97,45 @@ class HamiltonSimulator:
         except Exception as e:
             return {
                 "status": "FAILED",
-                "error": f"Unexpected simulator error: {str(e)}",
-                "execution_log": self.execution_log
+                "error": f"Simulator error: {str(e)}",
+                "execution_log": self.execution_log,
+                "exception_type": type(e).__name__
             }
+        finally:
+            if self.device is not None:
+                await self.device.stop()
 
-    def _execute_step(self, step: Dict[str, Any]):
+    async def _setup_deck(self):
+        """Initialize deck with labware resources from hardware config."""
+        # Create resources from hardware config
+        for resource_config in self.hw_config["resources"]:
+            resource_type = resource_config["type"]
+            location_coords = resource_config["location_coordinates"]
+            location = Coordinate(
+                x=location_coords["x"],
+                y=location_coords["y"],
+                z=location_coords["z"]
+            )
+
+            if resource_type == "hamilton_96_tiprack_300uL":
+                self.tip_rack = hamilton_96_tiprack_300uL(name=resource_config["name"])
+                self.deck.assign_child_resource(self.tip_rack, location=location)
+
+            elif resource_type == "cor_96_wellplate_360uL_Fb":
+                self.plate = cor_96_wellplate_360uL_Fb(name=resource_config["name"])
+                self.deck.assign_child_resource(self.plate, location=location)
+
+        # Initialize the STARlet device with simulation=True
+        self.device = STARlet(deck=self.deck, simulation=True)
+        await self.device.setup()
+
+    async def _execute_step(self, step: Dict[str, Any]):
         """Execute a single precheck protocol step in simulator."""
         step_num = step.get("step")
         action = step.get("action")
         labware_id = step.get("labware")
-        channels = step.get("channels", [0])
-        col_idx = step.get("column", 1) - 1  # Convert 1-indexed to 0-indexed
+        channels = step.get("channels", list(range(8)))
+        col = step.get("column", 1)
         volume = step.get("volume_ul", 0.0)
 
         log_entry = {
@@ -102,20 +147,20 @@ class HamiltonSimulator:
 
         try:
             if action == "tips_on":
-                self._execute_tips_on(labware_id, col_idx, channels)
+                await self._execute_tips_on(col, channels)
                 log_entry["status"] = "completed"
 
             elif action == "tips_off":
-                self._execute_tips_off()
+                await self._execute_tips_off()
                 log_entry["status"] = "completed"
 
             elif action == "aspirate":
-                self._execute_aspirate(labware_id, col_idx, volume, channels)
+                await self._execute_aspirate(col, volume, channels)
                 log_entry["volume_ul"] = volume
                 log_entry["status"] = "completed"
 
             elif action == "dispense":
-                self._execute_dispense(labware_id, col_idx, volume, channels)
+                await self._execute_dispense(col, volume, channels)
                 log_entry["volume_ul"] = volume
                 log_entry["status"] = "completed"
 
@@ -131,20 +176,69 @@ class HamiltonSimulator:
             self.execution_log.append(log_entry)
             raise SimulatorError(f"Step {step_num} ({action}): {str(e)}")
 
-    def _execute_tips_on(self, labware_id: str, col_idx: int, channels: List[int]):
+    async def _execute_tips_on(self, col: int, channels: List[int]):
         """Pick up tips from rack at specified column."""
-        # Map labware_id to PyLabRobot resource
-        # For now, log the action (full integration requires deck configuration)
-        pass
+        try:
+            # Convert column-based protocol to individual tip positions
+            # Column is 1-indexed in protocol, PyLabRobot uses 0-indexed
+            col_idx = col - 1
 
-    def _execute_tips_off(self):
-        """Discard tips."""
-        pass
+            # Get individual TipSpot objects from tip_rack.children
+            # For 8x12 grid: index = row * 12 + col
+            tips_to_pick = []
+            for ch in channels:
+                tip_index = ch * 12 + col_idx
+                tips_to_pick.append(self.tip_rack.children[tip_index])
 
-    def _execute_aspirate(self, labware_id: str, col_idx: int, volume: float, channels: List[int]):
+            # Pick up the tips using STARlet device
+            await self.device.pipettes.pick_up_tips(tips_to_pick)
+        except Exception as e:
+            raise SimulatorError(f"Failed to pick up tips at column {col}: {str(e)}")
+
+    async def _execute_tips_off(self):
+        """Discard tips to waste."""
+        try:
+            # STARlet discard_tips() handles the trash resource internally
+            await self.device.pipettes.discard_tips()
+        except Exception as e:
+            raise SimulatorError(f"Failed to drop tips: {str(e)}")
+
+    async def _execute_aspirate(self, col: int, volume: float, channels: List[int]):
         """Aspirate volume from plate."""
-        pass
+        try:
+            # Convert column-based protocol to individual well positions
+            # Column is 1-indexed in protocol, PyLabRobot uses 0-indexed
+            col_idx = col - 1
 
-    def _execute_dispense(self, labware_id: str, col_idx: int, volume: float, channels: List[int]):
+            # Get individual Well objects from plate.children
+            # For 8x12 grid: index = row * 12 + col
+            wells = []
+            for ch in channels:
+                well_index = ch * 12 + col_idx
+                wells.append(self.plate.children[well_index])
+
+            # PyLabRobot aspirate expects vols as a list
+            vols = [volume] * len(wells)
+            await self.device.pipettes.aspirate(wells, vols=vols)
+        except Exception as e:
+            raise SimulatorError(f"Failed to aspirate from column {col}: {str(e)}")
+
+    async def _execute_dispense(self, col: int, volume: float, channels: List[int]):
         """Dispense volume to plate."""
-        pass
+        try:
+            # Convert column-based protocol to individual well positions
+            # Column is 1-indexed in protocol, PyLabRobot uses 0-indexed
+            col_idx = col - 1
+
+            # Get individual Well objects from plate.children
+            # For 8x12 grid: index = row * 12 + col
+            wells = []
+            for ch in channels:
+                well_index = ch * 12 + col_idx
+                wells.append(self.plate.children[well_index])
+
+            # PyLabRobot dispense expects vols as a list
+            vols = [volume] * len(wells)
+            await self.device.pipettes.dispense(wells, vols=vols)
+        except Exception as e:
+            raise SimulatorError(f"Failed to dispense to column {col}: {str(e)}")

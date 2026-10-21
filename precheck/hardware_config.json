@@ -1,0 +1,71 @@
+{
+  "hardware_configurations": [
+    {
+      "id": "hamilton_star_v1",
+      "name": "Hamilton STAR Standard Deck",
+      "instrument": "Hamilton STAR",
+      "description": "Standard Hamilton STAR liquid handler with 8-channel head",
+      "deck_specs": {
+        "num_rails": 2,
+        "size_x": 1340,
+        "size_y": 924,
+        "size_z": 1000
+      },
+      "resources": [
+        {
+          "name": "tip_rack",
+          "type": "hamilton_96_tiprack_300uL",
+          "position": "position_0",
+          "location_coordinates": {"x": 175, "y": 95, "z": 800},
+          "description": "96-tip rack for 300µL tips"
+        },
+        {
+          "name": "plate",
+          "type": "cor_96_wellplate_360uL_Fb",
+          "position": "position_1",
+          "location_coordinates": {"x": 175, "y": 220, "z": 780},
+          "description": "96-well microplate (Corning, 360µL flat bottom)"
+        },
+        {
+          "name": "reservoir",
+          "type": "trough_reservoir_50ml",
+          "position": "position_2",
+          "location_coordinates": {"x": 50, "y": 220, "z": 780},
+          "description": "50mL trough for stock solution and diluent"
+        }
+      ]
+    },
+    {
+      "id": "opentrons_ot2_v1",
+      "name": "Opentrons OT-2 Standard Deck",
+      "instrument": "Opentrons OT-2",
+      "description": "Opentrons OT-2 liquid handler with 8-channel pipette",
+      "deck_specs": {
+        "num_slots": 12,
+        "size_x": 405,
+        "size_y": 351,
+        "size_z": 400
+      },
+      "resources": [
+        {
+          "name": "tip_rack",
+          "type": "opentrons_96_tiprack_300ul",
+          "position": "slot_1",
+          "description": "96-tip rack for 300µL tips"
+        },
+        {
+          "name": "plate",
+          "type": "corning_96_wellplate_360ul_flat",
+          "position": "slot_2",
+          "description": "96-well microplate"
+        },
+        {
+          "name": "reservoir",
+          "type": "usascientific_12_reservoir_22ml",
+          "position": "slot_3",
+          "description": "12-well reservoir for reagents"
+        }
+      ]
+    }
+  ]
+}
