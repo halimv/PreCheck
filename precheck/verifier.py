@@ -65,12 +65,9 @@ class Verifier:
         else:
             self.plate_state = [[0.0 for _ in range(12)] for _ in range(8)]  # Default to empty
 
-        # Tip rack state: 8 rows x 12 columns (True = tip present, False = used/depleted)
-        tip_config = initial_state.get("tip_rack", {})
-        if tip_config.get("state") == "full":
-            self.tip_rack_state = [[True for _ in range(12)] for _ in range(8)]
-        else:
-            self.tip_rack_state = [[True for _ in range(12)] for _ in range(8)]  # Default to full
+        # Tip rack state per labware: {rack_name: 8 rows x 12 columns}
+        # (True = tip present, False = used/depleted). Racks are created on first use.
+        self.tip_rack_state = {}
 
         # Pipette head mounted tips: 8-channel head (True = tip mounted, False = no tip)
         head_config = initial_state.get("pipette_head", {})
@@ -113,13 +110,14 @@ class Verifier:
 
         if action == "tips_on":
             for ch in channels:
-                # Check tip availability at (row=ch, column=col_idx)
-                if not self.tip_rack_state[ch][col_idx]:
+                rack = self.tip_rack_state.setdefault(labware, [[True for _ in range(12)] for _ in range(8)])
+                # Check tip availability at (row=ch, column=col_idx) in this rack
+                if not rack[ch][col_idx]:
                     raise SafetyGateError(
                         f"Step {step_num}: No tip available in rack '{labware}' at Row {ch+1}, Col {col_idx+1}.",
                         code="TIP_DEPLETED"
                     )
-                self.tip_rack_state[ch][col_idx] = False
+                rack[ch][col_idx] = False
                 self.channel_mounted_tips[ch] = True
 
         elif action == "tips_off":
