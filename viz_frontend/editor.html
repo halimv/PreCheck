@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Protocol plan editor</title>
+<style>
+:root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #f8f9fb;
+    --border: #e3e6eb;
+    --text: #16191f;
+    --text-2: #5b6370;
+    --text-3: #8b929e;
+    --accent: #006cfa;
+    --accent-soft: #e5f0ff;
+    --success: #04aa65;
+    --success-soft: #e3f6ed;
+    --danger: #d92d20;
+    --danger-soft: #fdecea;
+    --warn: #c77700;
+    --warn-soft: #fff4e0;
+
+    --a-pick: #7c4dff;
+    --a-asp: #006cfa;
+    --a-disp: #04aa65;
+    --a-drop: #6b7280;
+
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #0e1116; --surface: #161a21; --surface-2: #1b2029; --border: #2a303b;
+        --text: #e8eaee; --text-2: #a4abb7; --text-3: #737b88;
+        --accent: #4d9bff; --accent-soft: #15253d;
+        --success: #2fc884; --success-soft: #11291f; --danger: #f2675c; --danger-soft: #331a18;
+        --warn: #f0a840; --warn-soft: #33270f;
+        --shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+}
+:root[data-theme="dark"] {
+    --bg: #0e1116; --surface: #161a21; --surface-2: #1b2029; --border: #2a303b;
+    --text: #e8eaee; --text-2: #a4abb7; --text-3: #737b88;
+    --accent: #4d9bff; --accent-soft: #15253d;
+    --success: #2fc884; --success-soft: #11291f; --danger: #f2675c; --danger-soft: #331a18;
+    --warn: #f0a840; --warn-soft: #33270f;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px; background: var(--bg); color: var(--text);
+    -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; }
+body.dragging { cursor: grabbing; }
+
+/* ---------- Shell ---------- */
+.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+.topbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-mark {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--accent);
+    display: grid; place-items: center; color: #fff; flex-shrink: 0;
+}
+.brand-mark svg { width: 18px; height: 18px; }
+.brand-text { min-width: 0; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.title-input {
+    font: inherit; font-size: 16px; font-weight: 600; color: var(--text);
+    background: transparent; border: 1px solid transparent; border-radius: 6px;
+    padding: 2px 6px; margin-left: -6px; width: min(360px, 60vw);
+}
+.title-input:hover { border-color: var(--border); }
+.title-input:focus { outline: none; border-color: var(--accent); background: var(--surface-2); }
+.spacer { flex: 1; }
+
+.btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 14px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font: inherit; font-weight: 500; cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.pill {
+    display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px;
+    border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--surface-2); color: var(--text-2);
+    border: 1px solid var(--border); white-space: nowrap;
+}
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.passed { background: var(--success-soft); color: var(--success); border-color: transparent; }
+.pill.failed { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.pill.running { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+.save-status { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.save-status.pending { color: var(--warn); }
+.save-status.saving { color: var(--accent); }
+.save-status.error { color: var(--danger); }
+
+.main { display: grid; grid-template-columns: 260px minmax(0, 1fr) 320px; min-height: 0; }
+
+.section-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 16px 16px 10px; font-size: 12px; font-weight: 600; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--text-3);
+}
+
+/* ---------- Palette ---------- */
+.palette { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding-bottom: 16px; }
+.palette-item {
+    display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: center;
+    margin: 0 12px 8px; padding: 9px 10px; border-radius: 10px; cursor: grab;
+    border: 1px solid var(--border); background: var(--surface);
+}
+.palette-item:hover { background: var(--surface-2); }
+.palette-item b { display: block; font-weight: 600; }
+.palette-item small { color: var(--text-3); font-size: 12px; }
+.hint { margin: 4px 16px 0; font-size: 12px; color: var(--text-3); line-height: 1.45; }
+.lib-group { margin: 0 16px 12px; }
+.lib-head { font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 4px; }
+.lib-item { font-size: 12px; color: var(--text-3); padding: 2px 0; }
+
+.step-icon {
+    width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: #fff; flex-shrink: 0;
+}
+.step-icon svg { width: 16px; height: 16px; }
+
+/* ---------- Block list ---------- */
+.stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; }
+.stage-head { display: flex; align-items: baseline; gap: 12px; padding: 16px 24px 0; }
+.stage-head h2 { font-size: 15px; font-weight: 600; }
+.stage-head .sub { color: var(--text-3); font-size: 13px; }
+.blocks { padding: 8px 24px 40px; max-width: 880px; width: 100%; }
+
+.gap {
+    height: 10px; margin: 0; border-radius: 8px; border: 1px dashed transparent;
+    transition: height .12s, background .12s, border-color .12s;
+}
+body.dragging .gap { height: 36px; border-color: var(--border); }
+.gap.over { height: 36px; background: var(--accent-soft); border-color: var(--accent); }
+.gap.empty { height: 120px; display: grid; place-items: center; color: var(--text-3); font-size: 13px; border-color: var(--border); }
+body.dragging .gap.empty { height: 120px; }
+
+.block {
+    display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: start;
+    background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--c);
+    border-radius: 10px; padding: 12px 12px 12px 10px; box-shadow: var(--shadow);
+}
+.block.invalid { border-color: var(--warn); border-left-color: var(--c); background: var(--warn-soft); }
+.block.fail { border-color: var(--danger); border-left-color: var(--c); background: var(--danger-soft); }
+.block.dragging { opacity: .4; }
+.grip { color: var(--text-3); cursor: grab; user-select: none; line-height: 32px; text-align: center; letter-spacing: -2px; }
+.blk-head { display: flex; align-items: center; gap: 10px; }
+.blk-title { font-weight: 600; }
+.blk-num { color: var(--text-3); font-weight: 500; font-variant-numeric: tabular-nums; margin-right: 2px; }
+
+.fields { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 10px; }
+.field { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.field input, .field select {
+    height: 30px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+    border-radius: 6px; padding: 0 8px; font: inherit; font-size: 13px;
+}
+.field select { min-width: 180px; }
+.field input[type="number"] { width: 78px; font-variant-numeric: tabular-nums; }
+.field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+.chips { gap: 4px; }
+.chips button {
+    width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text-3); font: 12px 'JetBrains Mono', ui-monospace, Menlo, monospace; cursor: pointer;
+}
+.chips button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.issue { margin-top: 8px; font-size: 12px; color: var(--warn); }
+.block.fail .issue { color: var(--danger); font-weight: 500; }
+
+.blk-actions { display: flex; flex-direction: column; gap: 4px; }
+.mini {
+    width: 28px; height: 28px; border-radius: 6px; border: 1px solid transparent; background: transparent;
+    color: var(--text-2); cursor: pointer; font-family: inherit; font-size: 14px;
+}
+.mini:hover:not(:disabled) { background: var(--surface-2); border-color: var(--border); color: var(--text); }
+.mini.danger:hover:not(:disabled) { color: var(--danger); }
+.mini:disabled { opacity: .3; cursor: default; }
+
+/* ---------- Inspector ---------- */
+.inspector { background: var(--surface); border-left: 1px solid var(--border); overflow-y: auto; padding-bottom: 16px; }
+.card { margin: 0 12px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.card-body { padding: 14px; }
+.card h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.verify-msg { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.verify-msg.ok { color: var(--success); }
+.verify-msg.err { color: var(--danger); }
+.verify-msg .code { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--danger-soft); color: var(--danger); margin-bottom: 4px; }
+.issue-list { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--warn); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 13px; color: var(--text-2); }
+.kv span:nth-child(even) { color: var(--text); font-variant-numeric: tabular-nums; }
+details summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-2); }
+pre.json {
+    margin-top: 10px; max-height: 420px; overflow: auto; font-size: 11.5px; line-height: 1.5;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; color: var(--text-2);
+}
+.error-banner { margin: 16px 24px; padding: 12px; border-radius: 8px; background: var(--danger-soft); color: var(--danger); }
+
+@media (max-width: 1100px) {
+    .app { height: auto; min-height: 100vh; }
+    .main { grid-template-columns: 220px minmax(0, 1fr); }
+    .palette, .stage, .inspector { overflow: visible; }
+    .inspector { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border); }
+}
+@media (max-width: 760px) {
+    .main { grid-template-columns: 1fr; }
+    .palette { grid-row: auto; }
+    .palette { border-right: none; border-bottom: 1px solid var(--border); }
+    .blocks { padding: 8px 16px 40px; }
+    .field select { min-width: 0; width: 100%; }
+    .block { grid-template-columns: minmax(0, 1fr) auto; }
+    .grip { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-mark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9.5V3"/><path d="M7 15h10"/></svg>
+            </div>
+            <div class="brand-text">
+                <div class="eyebrow">Precheck Gate · Plan editor</div>
+                <input class="title-input" id="protocol-name" placeholder="Untitled protocol" aria-label="Protocol name" oninput="renameProtocol(this.value)">
+            </div>
+        </div>
+        <span class="spacer"></span>
+        <span class="save-status" id="save-status"></span>
+        <a class="btn" href="/">Run view</a>
+        <label class="btn" title="Replace the plan with an uploaded JSON file">
+            Import JSON
+            <input type="file" id="import-file" accept=".json,application/json" hidden onchange="importFile(this)">
+        </label>
+        <button class="btn" onclick="exportPlan()">Export JSON</button>
+        <span class="pill" id="verify-pill">Not verified</span>
+        <button class="btn primary" id="verify-btn" onclick="verify()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+            Verify
+        </button>
+    </header>
+
+    <div class="main">
+        <aside class="palette">
+            <div class="section-head"><span>Add a step</span></div>
+            <div id="palette-list"></div>
+            <p class="hint">Drag a step onto a gap between blocks, or click it to add it to the end.</p>
+
+            <div class="section-head"><span>Labware library</span></div>
+            <div id="library-list"></div>
+        </aside>
+
+        <section class="stage">
+            <div class="stage-head">
+                <h2>Protocol steps</h2>
+                <span class="sub" id="step-count"></span>
+            </div>
+            <div class="blocks" id="blocks"></div>
+        </section>
+
+        <aside class="inspector">
+            <div class="section-head"><span>Verification</span></div>
+            <div class="card"><div class="card-body" id="verify-detail"></div></div>
+
+            <div class="section-head"><span>Plan checks</span></div>
+            <div class="card"><div class="card-body" id="plan-issues"></div></div>
+
+            <div class="section-head"><span>Summary</span></div>
+            <div class="card"><div class="card-body" id="plan-summary"></div></div>
+
+            <div class="card"><div class="card-body">
+                <details>
+                    <summary>Backend JSON (protocol_plan.json)</summary>
+                    <pre class="json mono" id="plan-json"></pre>
+                </details>
+            </div></div>
+        </aside>
+    </div>
+</div>
+
+<script>
+const API = "/api";
+
+const ACTIONS = {
+    tips_on:  { label: "Pick up tips", color: "var(--a-pick)", hint: "Take a column of tips from a rack",
+                icon: '<path d="M12 3v10M8 9l4 4 4-4"/><path d="M9 17h6l-1 4h-4z"/>' },
+    aspirate: { label: "Aspirate", color: "var(--a-asp)", hint: "Draw liquid into the tips",
+                icon: '<path d="M12 21V8M7 12l5-5 5 5"/><path d="M5 3h14"/>' },
+    dispense: { label: "Dispense", color: "var(--a-disp)", hint: "Push liquid into the wells",
+                icon: '<path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>' },
+    tips_off: { label: "Drop tips", color: "var(--a-drop)", hint: "Eject tips into the waste",
+                icon: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>' },
+};
+const UNKNOWN_ACTION = { label: "Step", color: "var(--text-3)", icon: '<circle cx="12" cy="12" r="4"/>' };
+const CATEGORY_LABELS = { tip_racks: "Tip racks", plates: "Plates", reagent_containers: "Reagent containers" };
+const ACTION_CATEGORIES = { tips_on: ["tip_racks"], aspirate: ["reagent_containers", "plates"], dispense: ["plates", "reagent_containers"] };
+const ACTIONS_WITH_CHANNELS = ["tips_on", "aspirate", "dispense"];
+const ACTIONS_WITH_VOLUME = ["aspirate", "dispense"];
+const ALL_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 7];
+
+let plan = { protocol_name: "", steps: [] };
+let library = [];         // [{id, category}] from labware_config.json
+let fileErrors = [];      // protocol_plan validation messages from the server
+let verification = null;  // last /api/editor/verify result
+let verifying = false;
+let saveTimer = null;
+
+/* ---------- Helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const intOrNull = v => v === "" ? null : parseInt(v, 10);
+const numOrNull = v => v === "" ? null : parseFloat(v);
+const iconSvg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+
+function labwareOptions(action) {
+    if (action === "tips_off") return [{ id: "waste", category: "trash" }];
+    return (ACTION_CATEGORIES[action] || []).flatMap(c => library.filter(l => l.category === c));
+}
+
+function newStep(action) {
+    if (action === "tips_off") return { step: 0, action, labware: "waste" };
+    const step = { step: 0, action, labware: labwareOptions(action)[0]?.id || "", column: 1 };
+    if (ACTIONS_WITH_VOLUME.includes(action)) step.volume_ul = 100;
+    step.channels = [...ALL_CHANNELS];
+    return step;
+}
+
+function renumber() { plan.steps.forEach((s, i) => { s.step = i + 1; }); }
+
+/* Validation messages from the server start with "Step N:"; N is the 1-based position. */
+function issuesFor(i) { return fileErrors.filter(m => m.startsWith(`Step ${i + 1}:`)); }
+function unplacedIssues() { return fileErrors.filter(m => !/^Step \d+:/.test(m)); }
+
+/* ---------- Saving ---------- */
+function setSaveStatus(state, text) {
+    $("save-status").className = `save-status ${state || ""}`;
+    $("save-status").textContent = text || "";
+}
+
+function scheduleSave() {
+    setSaveStatus("pending", "Unsaved changes");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 400);
+}
+
+/* Writes the plan to the backend JSON file. Resolves to true when saved. */
+async function saveNow() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    setSaveStatus("saving", "Saving…");
+    try {
+        const res = await fetch(`${API}/editor/plan`, {
+            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(plan),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        fileErrors = data.file_errors?.protocol_plan || [];
+        setSaveStatus("", "Saved to backend");
+        renderBlocks();
+        renderInspector();
+        return true;
+    } catch (err) {
+        setSaveStatus("error", `Not saved: ${err.message}`);
+        return false;
+    }
+}
+
+/* Any structural or field change: renumber, drop the stale verification, save. */
+function edited() {
+    renumber();
+    verification = null;
+    renderBlocks();
+    renderInspector();
+    scheduleSave();
+}
+
+/* ---------- Block editing ---------- */
+function addStep(action) {
+    plan.steps.push(newStep(action));
+    edited();
+}
+function setField(i, key, value) {
+    plan.steps[i][key] = value;
+    edited();
+}
+function toggleChannel(i, ch) {
+    const step = plan.steps[i];
+    const channels = Array.isArray(step.channels) ? [...step.channels] : [];
+    step.channels = channels.includes(ch) ? channels.filter(c => c !== ch) : [...channels, ch].sort((a, b) => a - b);
+    edited();
+}
+function moveStep(i, delta) {
+    const j = i + delta;
+    if (j < 0 || j >= plan.steps.length) return;
+    [plan.steps[i], plan.steps[j]] = [plan.steps[j], plan.steps[i]];
+    edited();
+}
+function duplicateStep(i) {
+    plan.steps.splice(i + 1, 0, structuredClone(plan.steps[i]));
+    edited();
+}
+function deleteStep(i) {
+    plan.steps.splice(i, 1);
+    edited();
+}
+function renameProtocol(name) {
+    plan.protocol_name = name;
+    scheduleSave();
+}
+
+/* ---------- Drag and drop ---------- */
+function dragStep(e, i) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", `step:${i}`);
+    e.currentTarget.classList.add("dragging");
+    document.body.classList.add("dragging");
+}
+function dragNew(e, action) {
+    e.dataTransfer.effectAllowed = "copy";
+    e.dataTransfer.setData("text/plain", `new:${action}`);
+    document.body.classList.add("dragging");
+}
+function dragEnd() {
+    document.body.classList.remove("dragging");
+    document.querySelectorAll(".block.dragging, .gap.over").forEach(el => el.classList.remove("dragging", "over"));
+}
+function allowDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add("over");
+}
+function dropAt(e, at) {
+    e.preventDefault();
+    const payload = e.dataTransfer.getData("text/plain");
+    dragEnd();
+    if (payload.startsWith("new:")) {
+        plan.steps.splice(at, 0, newStep(payload.slice(4)));
+    } else if (payload.startsWith("step:")) {
+        const from = Number(payload.slice(5));
+        const [moved] = plan.steps.splice(from, 1);
+        plan.steps.splice(at > from ? at - 1 : at, 0, moved);
+    } else {
+        return;
+    }
+    edited();
+}
+
+/* ---------- Rendering ---------- */
+function gapHtml(at, empty = false) {
+    return `<div class="gap${empty ? " empty" : ""}" ondragover="allowDrop(event)" ondragleave="this.classList.remove('over')" ondrop="dropAt(event, ${at})">${empty ? "Drag a step here, or click one on the left" : ""}</div>`;
+}
+
+function fieldHtml(label, control) {
+    return `<label class="field"><span>${label}</span>${control}</label>`;
+}
+
+function blockHtml(step, i) {
+    const a = ACTIONS[step.action] || UNKNOWN_ACTION;
+    const failure = verification?.failed_step === i + 1 ? verification.message : null;
+    const messages = [...new Set([failure, ...issuesFor(i)].filter(Boolean))];
+    const cls = ["block", failure ? "fail" : messages.length ? "invalid" : ""].join(" ").trim();
+
+    const options = labwareOptions(step.action);
+    if (step.labware && !options.some(o => o.id === step.labware)) options.unshift({ id: step.labware });
+    const lwOptions = options.map(o =>
+        `<option value="${esc(o.id)}"${o.id === step.labware ? " selected" : ""}>${esc(o.id)}</option>`).join("")
+        + (step.labware ? "" : `<option value="" selected>Choose labware</option>`);
+    const fields = [fieldHtml("Labware", `<select onchange="setField(${i}, 'labware', this.value)">${lwOptions}</select>`)];
+
+    if (step.action !== "tips_off") {
+        fields.push(fieldHtml("Column", `<input type="number" min="1" max="12" step="1" value="${esc(step.column ?? "")}" onchange="setField(${i}, 'column', intOrNull(this.value))">`));
+    }
+    if (ACTIONS_WITH_VOLUME.includes(step.action)) {
+        fields.push(fieldHtml("Volume", `<input type="number" min="0" step="any" value="${esc(step.volume_ul ?? "")}" onchange="setField(${i}, 'volume_ul', numOrNull(this.value))"> µL`));
+    }
+    if (ACTIONS_WITH_CHANNELS.includes(step.action)) {
+        const active = Array.isArray(step.channels) ? step.channels : [];
+        const chips = ALL_CHANNELS.map(ch =>
+            `<button type="button" class="${active.includes(ch) ? "on" : ""}" title="Channel ${ch}" onclick="toggleChannel(${i}, ${ch})">${ch}</button>`).join("");
+        fields.push(`<div class="field chips"><span>Channels</span>${chips}</div>`);
+    }
+
+    return `
+    <div class="${cls}" style="--c: ${a.color}" draggable="true" ondragstart="dragStep(event, ${i})" ondragend="dragEnd()">
+        <div class="grip" title="Drag to reorder">⋮</div>
+        <div>
+            <div class="blk-head">
+                <span class="step-icon" style="background: ${a.color}">${iconSvg(a.icon)}</span>
+                <span class="blk-title"><span class="blk-num">${i + 1}</span> ${esc(a.label)}</span>
+            </div>
+            <div class="fields">${fields.join("")}</div>
+            ${messages.map(m => `<div class="issue">${esc(m)}</div>`).join("")}
+        </div>
+        <div class="blk-actions">
+            <button class="mini" title="Move up" onclick="moveStep(${i}, -1)" ${i === 0 ? "disabled" : ""}>↑</button>
+            <button class="mini" title="Move down" onclick="moveStep(${i}, 1)" ${i === plan.steps.length - 1 ? "disabled" : ""}>↓</button>
+            <button class="mini" title="Duplicate" onclick="duplicateStep(${i})">⧉</button>
+            <button class="mini danger" title="Delete" onclick="deleteStep(${i})">✕</button>
+        </div>
+    </div>`;
+}
+
+function renderBlocks() {
+    const n = plan.steps.length;
+    $("step-count").textContent = `${n} step${n === 1 ? "" : "s"}`;
+    if (!n) {
+        $("blocks").innerHTML = gapHtml(0, true);
+        return;
+    }
+    let html = gapHtml(0);
+    plan.steps.forEach((step, i) => { html += blockHtml(step, i) + gapHtml(i + 1); });
+    $("blocks").innerHTML = html;
+}
+
+function setVerifyPill(state, text) {
+    const pill = $("verify-pill");
+    pill.className = "pill" + (state ? ` ${state}` : "");
+    pill.textContent = text || "Not verified";
+}
+
+function renderInspector() {
+    const detail = $("verify-detail");
+    if (verifying) {
+        setVerifyPill("running", "Verifying…");
+    } else if (!verification) {
+        setVerifyPill();
+        detail.className = "card-body";
+        detail.innerHTML = `<div class="verify-msg">Verify checks tip usage, volumes and contamination against the built-in deck and labware library.</div>`;
+    } else {
+        const ok = verification.status === "PASSED";
+        setVerifyPill(ok ? "passed" : "failed", ok ? "Passed" : verification.status === "ERROR" ? "Error" : "Failed");
+        detail.className = "card-body";
+        detail.innerHTML = `<div class="verify-msg ${ok ? "ok" : "err"}">`
+            + (verification.error_code ? `<span class="code mono">${esc(verification.error_code)}</span><br>` : "")
+            + esc(verification.message || "Verification complete.") + `</div>`;
+    }
+
+    const issues = unplacedIssues();
+    $("plan-issues").innerHTML = issues.length
+        ? `<div class="issue-list">${issues.map(m => `<div>${esc(m)}</div>`).join("")}</div>`
+        : `<div class="verify-msg">${plan.steps.length ? "No schema problems found." : "Add a step to get started."}</div>`;
+
+    const counts = {};
+    const labware = {};
+    plan.steps.forEach(s => {
+        counts[s.action] = (counts[s.action] || 0) + 1;
+        if (s.labware) labware[s.labware] = (labware[s.labware] || 0) + 1;
+    });
+    $("plan-summary").innerHTML = plan.steps.length
+        ? `<div class="kv">${Object.entries(counts).map(([a, c]) =>
+            `<span>${esc(ACTIONS[a]?.label || a)}</span><span>${c}</span>`).join("")}</div>
+           <div class="verify-msg" style="margin-top:10px">Labware: ${Object.entries(labware).map(([id, c]) => `${esc(id)} (${c})`).join(", ")}</div>`
+        : `<div class="verify-msg">Nothing here yet.</div>`;
+
+    $("plan-json").textContent = JSON.stringify(plan, null, 2);
+}
+
+function renderPalette() {
+    $("palette-list").innerHTML = Object.entries(ACTIONS).map(([key, a]) => `
+        <div class="palette-item" draggable="true" ondragstart="dragNew(event, '${key}')" ondragend="dragEnd()" onclick="addStep('${key}')" title="Drag onto a gap, or click to add">
+            <span class="step-icon" style="background: ${a.color}">${iconSvg(a.icon)}</span>
+            <span><b>${esc(a.label)}</b><small>${esc(a.hint)}</small></span>
+        </div>`).join("");
+}
+
+function renderLibrary() {
+    $("library-list").innerHTML = Object.entries(CATEGORY_LABELS).map(([category, label]) => `
+        <div class="lib-group">
+            <div class="lib-head">${label}</div>
+            ${library.filter(l => l.category === category).map(l => `<div class="lib-item mono">${esc(l.id)}</div>`).join("")}
+        </div>`).join("");
+}
+
+/* ---------- Import / export / verify ---------- */
+async function importFile(input) {
+    const file = input.files[0];
+    input.value = "";
+    if (!file) return;
+    try {
+        const data = JSON.parse(await file.text());
+        if (!data || !Array.isArray(data.steps)) throw new Error("expected an object with a `steps` list");
+        plan = data;
+        $("protocol-name").value = plan.protocol_name || "";
+        verification = null;
+        fileErrors = [];
+        renumber();
+        renderBlocks();
+        renderInspector();
+        await saveNow();
+    } catch (err) {
+        setSaveStatus("error", `Import failed: ${err.message}`);
+    }
+}
+
+function exportPlan() {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "protocol_plan.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function verify() {
+    $("verify-btn").disabled = true;
+    verifying = true;
+    try {
+        // Verify what is on the backend, so the save has to succeed first.
+        if (!await saveNow()) throw new Error("the plan could not be saved, so it was not verified");
+        const res = await fetch(`${API}/editor/verify`, { method: "POST" });
+        verification = await res.json();
+        if (verification.file_errors?.protocol_plan) fileErrors = verification.file_errors.protocol_plan;
+    } catch (err) {
+        verification = { status: "ERROR", message: err.message };
+    } finally {
+        verifying = false;
+        $("verify-btn").disabled = false;
+    }
+    renderBlocks();
+    renderInspector();
+    document.querySelector(".block.fail")?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+/* ---------- Start ---------- */
+async function init() {
+    try {
+        const [planRes, libRes] = await Promise.all([fetch(`${API}/editor/plan`), fetch(`${API}/editor/labware`)]);
+        if (!planRes.ok || !libRes.ok) throw new Error("the server returned an error");
+        const planData = await planRes.json();
+        plan = planData.plan;
+        fileErrors = planData.file_errors?.protocol_plan || [];
+        library = (await libRes.json()).labware;
+        $("protocol-name").value = plan.protocol_name || "";
+        renderPalette();
+        renderLibrary();
+        renderBlocks();
+        renderInspector();
+    } catch (err) {
+        $("blocks").innerHTML = `<div class="error-banner">Couldn't load the plan: ${esc(err.message)}</div>`;
+    }
+}
+init();
+</script>
+</body>
+</html>

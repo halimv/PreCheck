@@ -8,7 +8,19 @@ A web-based protocol visualizer for loading and validating Hamilton liquid handl
 python start_visualizer.py
 ```
 
-Then open **http://localhost:8000** in your browser.
+Then open **http://localhost:8000** in your browser (run view), or **http://localhost:8000/editor** (plan editor).
+
+## Plan editor (step 2)
+
+An intermediate view for building and changing a plan by hand, before running it.
+
+- **Blocks** — each step is a block: Pick up tips, Aspirate, Dispense, Drop tips. Edit labware, column, volume and channels in place.
+- **Create / reorder** — drag a block from the left palette (or click it to append) onto a gap between steps. Drag existing blocks onto another gap to move them. ↑ / ↓ / duplicate / delete are on each block.
+- **Saved as you go** — every change is written to `viz_backend/workspace/protocol_plan.json` (auto-saved, gitignored). The first open seeds it from `precheck/protocol_plan_simple.yaml`.
+- **Import JSON / Export JSON** — swap the workspace plan for an LLM-generated `.json` plan, or download the current one.
+- **Verify** — saves, then runs the same precheck gate as the run view on the workspace plan. A failing step is highlighted with its error.
+
+Steps are renumbered by position on every save. Validation problems (e.g. a missing volume) show on the block and in the **Plan checks** panel; they don't block saving.
 
 ## Features
 
@@ -39,7 +51,8 @@ viz_backend/
   └── requirements.txt   # Python dependencies
 
 viz_frontend/
-  └── index.html         # Single-page web app
+  ├── index.html         # Run view (single-page web app)
+  └── editor.html        # Step-2 plan editor
 
 start_visualizer.py      # Python launcher
 ```
@@ -53,6 +66,10 @@ start_visualizer.py      # Python launcher
 - `GET /api/samples/<name>` — Download a bundled sample file
 - `GET|POST /api/session` — Validate files and return protocol + resolved deck (POST body: file texts; GET uses built-in samples)
 - `POST /api/verify` — Run verification on posted file texts (or the built-in files if the body is empty)
+- `GET /editor` — Serve the plan editor
+- `GET|PUT /api/editor/plan` — Read or replace the workspace plan (PUT returns `file_errors` for the steps)
+- `GET /api/editor/labware` — Labware ids the editor can pick, by category
+- `POST /api/editor/verify` — Verify the workspace plan
 
 ## Requirements
 

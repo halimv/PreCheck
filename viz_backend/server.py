@@ -15,6 +15,7 @@ CORS(app)
 PROJECT_ROOT = Path(__file__).parent.parent
 PRECHECK_DIR = PROJECT_ROOT / "precheck"
 FRONTEND_FILE = PROJECT_ROOT / "viz_frontend" / "index.html"
+EDITOR_FILE = PROJECT_ROOT / "viz_frontend" / "editor.html"
 sys.path.insert(0, str(PROJECT_ROOT))
 from precheck.verifier import Verifier
 
@@ -22,6 +23,11 @@ PROTOCOL_FILE = PRECHECK_DIR / "protocol_plan.yaml"
 HARDWARE_FILE = PRECHECK_DIR / "hardware_config.json"
 LABWARE_FILE = PRECHECK_DIR / "labware_config.json"
 PROTOCOL_CONFIG_FILE = PRECHECK_DIR / "protocol_config.json"
+
+# Step-2 editor: the plan being edited lives here as JSON. Seeded from the
+# bundled simple demo the first time the editor is opened.
+WORKSPACE_FILE = Path(__file__).parent / "workspace" / "protocol_plan.json"
+SEED_PLAN_FILE = PRECHECK_DIR / "protocol_plan_simple.yaml"
 
 DECK_ID = "opentrons_ot2_v1"
 TRASH_SLOT = 12
@@ -350,26 +356,111 @@ def get_session():
         return jsonify({"error": str(e)}), 500
 
 
+def run_verification(texts):
+    """Validate the file texts, then run the precheck gate on them. Raises InputError."""
+    parse_inputs(texts)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "labware_config.json").write_text(texts["labware_config"])
+        (tmp / "protocol_plan.yaml").write_text(texts["protocol_plan"])
+        config_path = None
+        if texts.get("protocol_config"):
+            config_path = str(tmp / "protocol_config.json")
+            Path(config_path).write_text(texts["protocol_config"])
+        verifier = Verifier(str(tmp / "labware_config.json"), str(tmp / "protocol_plan.yaml"), config_path)
+        result = verifier.run_verification()
+    match = re.match(r"Step (\d+):", result.get("message", ""))
+    if result.get("status") == "FAILED" and match:
+        result["failed_step"] = int(match.group(1))
+    return result
+
+
 @app.route("/api/verify", methods=["POST"])
 def verify():
     """Run protocol verification on the posted files (or the built-in ones)."""
     try:
-        texts = request_texts()
+        return jsonify(run_verification(request_texts()))
+    except InputError as e:
+        return jsonify({"status": "ERROR", "message": "Some files are missing or invalid.",
+                        "file_errors": e.errors}), 422
+    except Exception as e:
+        return jsonify({"status": "ERROR", "message": str(e)}), 500
+
+
+# ---------- Step-2 editor ----------
+
+def load_workspace_plan():
+    """The editor's working plan, seeded from the bundled demo on first use."""
+    if not WORKSPACE_FILE.exists():
+        WORKSPACE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        seed = yaml.safe_load(SEED_PLAN_FILE.read_text())
+        WORKSPACE_FILE.write_text(json.dumps(seed, indent=2))
+    return json.loads(WORKSPACE_FILE.read_text())
+
+
+def plan_file_errors(plan):
+    """Validation errors for a plan object, keyed by file, using the same checks as the run view."""
+    texts = default_texts()
+    texts["protocol_plan"] = json.dumps(plan)
+    try:
         parse_inputs(texts)
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            (tmp / "labware_config.json").write_text(texts["labware_config"])
-            (tmp / "protocol_plan.yaml").write_text(texts["protocol_plan"])
-            config_path = None
-            if texts.get("protocol_config"):
-                config_path = str(tmp / "protocol_config.json")
-                Path(config_path).write_text(texts["protocol_config"])
-            verifier = Verifier(str(tmp / "labware_config.json"), str(tmp / "protocol_plan.yaml"), config_path)
-            result = verifier.run_verification()
-        match = re.match(r"Step (\d+):", result.get("message", ""))
-        if result.get("status") == "FAILED" and match:
-            result["failed_step"] = int(match.group(1))
-        return jsonify(result)
+        return {}
+    except InputError as e:
+        return e.errors
+
+
+def save_workspace_plan(plan):
+    """Renumber steps to their position, persist the plan, and return it with any validation errors."""
+    steps = plan.get("steps")
+    if isinstance(steps, list):
+        for i, step in enumerate(steps, 1):
+            if isinstance(step, dict):
+                step["step"] = i
+    WORKSPACE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    WORKSPACE_FILE.write_text(json.dumps(plan, indent=2))
+    # Drafts are saved even when invalid; the editor shows the errors on the blocks.
+    return {"plan": plan, "file_errors": plan_file_errors(plan)}
+
+
+@app.route("/editor")
+def editor():
+    return EDITOR_FILE.read_text()
+
+
+@app.route("/api/editor/plan", methods=["GET", "PUT"])
+def editor_plan():
+    """GET the workspace plan. PUT replaces it with the posted plan object."""
+    try:
+        if request.method == "GET":
+            plan = load_workspace_plan()
+            return jsonify({"plan": plan, "file_errors": plan_file_errors(plan)})
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return jsonify({"error": "Expected a JSON object with a `steps` list."}), 400
+        return jsonify(save_workspace_plan(body))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/editor/labware")
+def editor_labware():
+    """Labware ids the editor can pick, grouped by library category."""
+    lib = json.loads(LABWARE_FILE.read_text())
+    items = [
+        {"id": lw_id, "category": category}
+        for category in CATEGORY_ROLES
+        for lw_id in lib.get(category, {})
+    ]
+    return jsonify({"labware": items})
+
+
+@app.route("/api/editor/verify", methods=["POST"])
+def editor_verify():
+    """Verify the workspace plan (saved by the editor) against the built-in deck and library."""
+    try:
+        texts = default_texts()
+        texts["protocol_plan"] = json.dumps(load_workspace_plan())
+        return jsonify(run_verification(texts))
     except InputError as e:
         return jsonify({"status": "ERROR", "message": "Some files are missing or invalid.",
                         "file_errors": e.errors}), 422
@@ -379,5 +470,6 @@ def verify():
 
 if __name__ == "__main__":
     print("\n✅ Precheck Visualizer")
-    print("🌐 http://localhost:8000\n")
+    print("🌐 http://localhost:8000          (run view)")
+    print("✏️  http://localhost:8000/editor   (plan editor)\n")
     app.run(port=8000, debug=False)
