@@ -66,6 +66,10 @@
     "tip_rack_serial_transfer": "hamilton_tiprack_96_b",
     "waste": "waste"
   },
+  "initial_volumes_ul": {
+    "tube_15ml": 600,
+    "reservoir_50ml": 5500
+  },
   "steps": [
     {
       "step": 1,

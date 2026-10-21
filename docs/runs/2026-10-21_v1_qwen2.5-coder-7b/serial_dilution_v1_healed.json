@@ -1,0 +1,1319 @@
+{
+  "protocol_name": "2-Fold Serial Dilution Protocol (12 columns, 1000 uM to 0.488 uM)",
+  "version": "4.0",
+  "description": "Full 2-fold serial dilution. Column 1 holds 1000 uM stock, columns 2-12 each receive 50 uL diluent, then 50 uL is transferred column to column with fresh tips, and 50 uL excess is discarded from column 12.",
+  "dilution": {
+    "stock_concentration_um": 1000,
+    "dilution_factor": 2,
+    "columns": [
+      {
+        "column": 1,
+        "concentration_um": 1000.0
+      },
+      {
+        "column": 2,
+        "concentration_um": 500.0
+      },
+      {
+        "column": 3,
+        "concentration_um": 250.0
+      },
+      {
+        "column": 4,
+        "concentration_um": 125.0
+      },
+      {
+        "column": 5,
+        "concentration_um": 62.5
+      },
+      {
+        "column": 6,
+        "concentration_um": 31.25
+      },
+      {
+        "column": 7,
+        "concentration_um": 15.625
+      },
+      {
+        "column": 8,
+        "concentration_um": 7.8125
+      },
+      {
+        "column": 9,
+        "concentration_um": 3.9062
+      },
+      {
+        "column": 10,
+        "concentration_um": 1.9531
+      },
+      {
+        "column": 11,
+        "concentration_um": 0.9766
+      },
+      {
+        "column": 12,
+        "concentration_um": 0.4883
+      }
+    ],
+    "final_volume_per_well_ul": 100,
+    "dead_volume_ul": 30
+  },
+  "labware": {
+    "plate": "corning_3595",
+    "stock_tube": "tube_15ml",
+    "diluent_reservoir": "reservoir_50ml",
+    "tip_rack_diluent_and_stock": "hamilton_tiprack_96",
+    "tip_rack_serial_transfer": "hamilton_tiprack_96_b",
+    "waste": "waste"
+  },
+  "initial_volumes_ul": {
+    "tube_15ml": 900,
+    "reservoir_50ml": 5500
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 1,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 1 column 1, for stock fill"
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 100.0,
+      "channels": [
+        0
+      ],
+      "description": "Aspirate 100 uL from tube_15ml using channel 0",
+      "step": 2
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 100.0,
+      "channels": [
+        1
+      ],
+      "description": "Aspirate 100 uL from tube_15ml using channel 1",
+      "step": 3
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 100.0,
+      "channels": [
+        2
+      ],
+      "description": "Aspirate 100 uL from tube_15ml using channel 2",
+      "step": 4
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 100.0,
+      "channels": [
+        3
+      ],
+      "description": "Aspirate 100 uL from tube_15ml using channel 3",
+      "step": 5
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 100.0,
+      "channels": [
+        4
+      ],
+      "description": "Aspirate 100 uL from tube_15ml using channel 4",
+      "step": 6
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 100.0,
+      "channels": [
+        5
+      ],
+      "description": "Aspirate 100 uL from tube_15ml using channel 5",
+      "step": 7
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 100.0,
+      "channels": [
+        6
+      ],
+      "description": "Aspirate 100 uL from tube_15ml using channel 6",
+      "step": 8
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 100.0,
+      "channels": [
+        7
+      ],
+      "description": "Aspirate 100 uL from tube_15ml using channel 7",
+      "step": 9
+    },
+    {
+      "step": 10,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 1,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 100.0,
+      "description": "Dispense 100 uL stock into plate column 1 (1000 uM)"
+    },
+    {
+      "step": 11,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject stock tips to waste"
+    },
+    {
+      "step": 12,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 2,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 1 column 2, for diluent"
+    },
+    {
+      "step": 13,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "column": 1,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 200.0,
+      "description": "Aspirate 200 uL diluent from reservoir for columns 2-5"
+    },
+    {
+      "step": 14,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 2,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 2"
+    },
+    {
+      "step": 15,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 3,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 3"
+    },
+    {
+      "step": 16,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 4,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 4"
+    },
+    {
+      "step": 17,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 5,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 5"
+    },
+    {
+      "step": 18,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "column": 1,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 200.0,
+      "description": "Aspirate 200 uL diluent from reservoir for columns 6-9"
+    },
+    {
+      "step": 19,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 6,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 6"
+    },
+    {
+      "step": 20,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 7,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 7"
+    },
+    {
+      "step": 21,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 8,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 8"
+    },
+    {
+      "step": 22,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 9,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 9"
+    },
+    {
+      "step": 23,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "column": 1,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 150.0,
+      "description": "Aspirate 150 uL diluent from reservoir for columns 10-12"
+    },
+    {
+      "step": 24,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 10"
+    },
+    {
+      "step": 25,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 11,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 11"
+    },
+    {
+      "step": 26,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 12,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL diluent into plate column 12"
+    },
+    {
+      "step": 27,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject diluent tips to waste"
+    },
+    {
+      "step": 28,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 1,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 1, for transfer 1 to 2"
+    },
+    {
+      "step": 29,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 1,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 1 (mixed 1000 uM)"
+    },
+    {
+      "step": 30,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 2,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 2 (now 500 uM)"
+    },
+    {
+      "step": 31,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 1 tips to waste"
+    },
+    {
+      "step": 32,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 2,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 2, for transfer 2 to 3"
+    },
+    {
+      "step": 33,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 2,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 2 (mixed 500 uM)"
+    },
+    {
+      "step": 34,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 3,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 3 (now 250 uM)"
+    },
+    {
+      "step": 35,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 2 tips to waste"
+    },
+    {
+      "step": 36,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 3,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 3, for transfer 3 to 4"
+    },
+    {
+      "step": 37,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 3,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 3 (mixed 250 uM)"
+    },
+    {
+      "step": 38,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 4,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 4 (now 125 uM)"
+    },
+    {
+      "step": 39,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 3 tips to waste"
+    },
+    {
+      "step": 40,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 4,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 4, for transfer 4 to 5"
+    },
+    {
+      "step": 41,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 4,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 4 (mixed 125 uM)"
+    },
+    {
+      "step": 42,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 5,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 5 (now 62.5 uM)"
+    },
+    {
+      "step": 43,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 4 tips to waste"
+    },
+    {
+      "step": 44,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 5,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 5, for transfer 5 to 6"
+    },
+    {
+      "step": 45,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 5,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 5 (mixed 62.5 uM)"
+    },
+    {
+      "step": 46,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 6,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 6 (now 31.25 uM)"
+    },
+    {
+      "step": 47,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 5 tips to waste"
+    },
+    {
+      "step": 48,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 6,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 6, for transfer 6 to 7"
+    },
+    {
+      "step": 49,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 6,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 6 (mixed 31.25 uM)"
+    },
+    {
+      "step": 50,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 7,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 7 (now 15.625 uM)"
+    },
+    {
+      "step": 51,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 6 tips to waste"
+    },
+    {
+      "step": 52,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 7,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 7, for transfer 7 to 8"
+    },
+    {
+      "step": 53,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 7,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 7 (mixed 15.625 uM)"
+    },
+    {
+      "step": 54,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 8,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 8 (now 7.8125 uM)"
+    },
+    {
+      "step": 55,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 7 tips to waste"
+    },
+    {
+      "step": 56,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 8,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 8, for transfer 8 to 9"
+    },
+    {
+      "step": 57,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 8,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 8 (mixed 7.8125 uM)"
+    },
+    {
+      "step": 58,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 9,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 9 (now 3.90625 uM)"
+    },
+    {
+      "step": 59,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 8 tips to waste"
+    },
+    {
+      "step": 60,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 9,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 9, for transfer 9 to 10"
+    },
+    {
+      "step": 61,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 9,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 9 (mixed 3.90625 uM)"
+    },
+    {
+      "step": 62,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 10 (now 1.95312 uM)"
+    },
+    {
+      "step": 63,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 9 tips to waste"
+    },
+    {
+      "step": 64,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 10, for transfer 10 to 11"
+    },
+    {
+      "step": 65,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 10 (mixed 1.95312 uM)"
+    },
+    {
+      "step": 66,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 11,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 11 (now 0.976562 uM)"
+    },
+    {
+      "step": 67,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 10 tips to waste"
+    },
+    {
+      "step": 68,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 11,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 11, for transfer 11 to 12"
+    },
+    {
+      "step": 69,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 11,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL from plate column 11 (mixed 0.976562 uM)"
+    },
+    {
+      "step": 70,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 12,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Dispense 50 uL into plate column 12 (now 0.488281 uM)"
+    },
+    {
+      "step": 71,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject transfer 11 tips to waste"
+    },
+    {
+      "step": 72,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96_b",
+      "column": 12,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up 8 tips, rack 2 column 12, for final discard"
+    },
+    {
+      "step": 73,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 12,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Aspirate 50 uL excess from plate column 12"
+    },
+    {
+      "step": 74,
+      "action": "dispense",
+      "labware": "waste",
+      "column": 12,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "volume_ul": 50.0,
+      "description": "Discard 50 uL excess to waste"
+    },
+    {
+      "step": 75,
+      "action": "tips_off",
+      "labware": "waste",
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Eject discard tips to waste"
+    }
+  ]
+}

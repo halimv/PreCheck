@@ -114,7 +114,10 @@ class Verifier:
         action = step.get("action")
         labware = step.get("labware")
         channels = step.get("channels", [0])
-        col_idx = step.get("column", 1) - 1 if step.get("column") else None  # Convert 1-indexed to 0-indexed
+        column = step.get("column")
+        # Convert 1-indexed to 0-indexed. Single containers (troughs, tubes, waste) have no columns,
+        # so only tips_on and plate aspirate/dispense require one; others share column index 0.
+        col_idx = column - 1 if column is not None else None
 
         if action == "tips_on":
             if col_idx is None:
@@ -140,10 +143,12 @@ class Verifier:
 
         elif action == "aspirate":
             if col_idx is None:
-                raise SafetyGateError(
-                    f"Step {step_num}: aspirate action requires 'column' field.",
-                    code="VALIDATION_ERROR"
-                )
+                if self._get_plate_specs(labware):
+                    raise SafetyGateError(
+                        f"Step {step_num}: aspirate from plate '{labware}' requires a 'column' field.",
+                        code="VALIDATION_ERROR"
+                    )
+                col_idx = 0
             vol = step.get("volume_ul", 0.0)
 
             for ch in channels:
@@ -185,10 +190,12 @@ class Verifier:
 
         elif action == "dispense":
             if col_idx is None:
-                raise SafetyGateError(
-                    f"Step {step_num}: dispense action requires 'column' field.",
-                    code="VALIDATION_ERROR"
-                )
+                if self._get_plate_specs(labware):
+                    raise SafetyGateError(
+                        f"Step {step_num}: dispense into plate '{labware}' requires a 'column' field.",
+                        code="VALIDATION_ERROR"
+                    )
+                col_idx = 0
             vol = step.get("volume_ul", 0.0)
 
             for ch in channels:
