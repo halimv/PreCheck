@@ -1,0 +1,62 @@
+{
+  "protocol_name": "Simple Demo Protocol",
+  "version": "1.0",
+  "description": "Simplified protocol for simulator demo: single pick-aspirate-dispense-drop cycle",
+  "steps": [
+    {
+      "step": 1,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 1,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "step": 2,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "column": 1,
+      "volume_ul": 100.0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "step": 3,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 1,
+      "volume_ul": 100.0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "step": 4,
+      "action": "tips_off",
+      "labware": "waste"
+    }
+  ]
+}

@@ -1,0 +1,394 @@
+{
+  "labware_library": {
+    "description": "Static library of hardware specifications (plates, tips, containers). Add new labware variants as needed.",
+    "version": "1.0",
+    "last_updated": "2024-01-15"
+  },
+
+  "plates": {
+    "corning_3595": {
+      "id": "corning_3595",
+      "manufacturer": "Corning",
+      "product_name": "Corning® 96-well Flat Bottom Microplate",
+      "product_code": "3595",
+      "well_format": "96-well",
+      "surface_coating": "TC treated polystyrene",
+      "geometry": {
+        "format": "8 rows × 12 columns",
+        "row_count": 8,
+        "column_count": 12,
+        "well_spacing_mm": 9,
+        "plate_width_mm": 127,
+        "plate_length_mm": 85,
+        "plate_height_mm": 10.67
+      },
+      "well_specifications": {
+        "well_diameter_mm": 6.86,
+        "well_depth_mm": 10.67,
+        "well_volume_range": {
+          "min_ul": 30,
+          "max_ul": 330,
+          "working_volume_ul": 300,
+          "assay_volume_ul": 100,
+          "notes": "30µL dead volume minimum enforced; usable range 30-330µL"
+        },
+        "bottom_type": "Flat",
+        "material": "Polystyrene",
+        "optical_properties": "Clear/Transparent"
+      },
+      "sterility": "Sterile",
+      "pyrogen_level": "<0.01 EU/mL",
+      "surface_tension": "Low binding",
+      "features": [
+        "TC (Tissue Culture) treated",
+        "Pre-sterilized",
+        "Ultra-low evaporation lid included",
+        "Optimal for automated liquid handling"
+      ],
+      "storage_temperature": "15-25°C",
+      "use_cases": ["ELISA", "general assays", "cell culture", "immunoassays"]
+    },
+
+    "corning_3603": {
+      "id": "corning_3603",
+      "manufacturer": "Corning",
+      "product_name": "Corning® 96-well Black Round Bottom Microplate",
+      "product_code": "3603",
+      "well_format": "96-well",
+      "surface_coating": "Black polystyrene",
+      "geometry": {
+        "format": "8 rows × 12 columns",
+        "row_count": 8,
+        "column_count": 12,
+        "well_spacing_mm": 9,
+        "plate_width_mm": 127,
+        "plate_length_mm": 85,
+        "plate_height_mm": 10.67
+      },
+      "well_specifications": {
+        "well_diameter_mm": 6.86,
+        "well_depth_mm": 10.67,
+        "well_volume_range": {
+          "min_ul": 30,
+          "max_ul": 330,
+          "working_volume_ul": 300,
+          "assay_volume_ul": 100,
+          "notes": "30µL dead volume minimum enforced; usable range 30-330µL"
+        },
+        "bottom_type": "Round",
+        "material": "Polystyrene",
+        "optical_properties": "Black opaque"
+      },
+      "sterility": "Sterile",
+      "pyrogen_level": "<0.01 EU/mL",
+      "features": [
+        "Minimizes crosstalk between wells",
+        "Pre-sterilized",
+        "Ultra-low evaporation lid included"
+      ],
+      "storage_temperature": "15-25°C",
+      "use_cases": ["fluorescence assays", "luminescence assays", "high-sensitivity detection"]
+    },
+
+    "corning_3610": {
+      "id": "corning_3610",
+      "manufacturer": "Corning",
+      "product_name": "Corning® 96-well V-Bottom Microplate",
+      "product_code": "3610",
+      "well_format": "96-well",
+      "surface_coating": "Polystyrene",
+      "geometry": {
+        "format": "8 rows × 12 columns",
+        "row_count": 8,
+        "column_count": 12,
+        "well_spacing_mm": 9,
+        "plate_width_mm": 127,
+        "plate_length_mm": 85,
+        "plate_height_mm": 10.67
+      },
+      "well_specifications": {
+        "well_diameter_mm": 6.86,
+        "well_volume_range": {
+          "min_ul": 30,
+          "max_ul": 270,
+          "working_volume_ul": 240,
+          "notes": "30µL dead volume minimum enforced; usable range 30-270µL"
+        },
+        "bottom_type": "V-shaped",
+        "material": "Polystyrene",
+        "optical_properties": "Clear"
+      },
+      "sterility": "Sterile",
+      "features": [
+        "Better for cell pellet management",
+        "Pre-sterilized"
+      ],
+      "storage_temperature": "15-25°C",
+      "use_cases": ["cell culture", "immunoassays", "cell-based assays"],
+      "notes": "Not suitable for plate readers due to V-bottom geometry"
+    },
+
+    "corning_3650": {
+      "id": "corning_3650",
+      "manufacturer": "Corning",
+      "product_name": "Corning® 96-well Ultra-Low Attachment Microplate",
+      "product_code": "3650",
+      "well_format": "96-well",
+      "surface_coating": "Ultra-low protein binding",
+      "geometry": {
+        "format": "8 rows × 12 columns",
+        "row_count": 8,
+        "column_count": 12,
+        "well_spacing_mm": 9,
+        "plate_width_mm": 127,
+        "plate_length_mm": 85,
+        "plate_height_mm": 10.67
+      },
+      "well_specifications": {
+        "well_diameter_mm": 6.86,
+        "well_depth_mm": 10.67,
+        "well_volume_range": {
+          "min_ul": 30,
+          "max_ul": 330,
+          "working_volume_ul": 300,
+          "notes": "30µL dead volume minimum enforced; usable range 30-330µL"
+        },
+        "bottom_type": "Flat",
+        "material": "Polystyrene",
+        "optical_properties": "Clear"
+      },
+      "sterility": "Sterile",
+      "features": [
+        "Prevents cell attachment",
+        "Ultra-low protein binding"
+      ],
+      "storage_temperature": "15-25°C",
+      "use_cases": ["spheroid culture", "organoid culture", "cell suspension maintenance"]
+    }
+  },
+
+  "tips": {
+    "hamilton_robotip_200": {
+      "id": "hamilton_robotip_200",
+      "tip_type": "Standard Volume Multi-Channel Tips",
+      "manufacturer": "Hamilton",
+      "product_line": "RoboTip®",
+      "specifications": {
+        "capacity_ul": 200,
+        "minimum_volume_ul": 2,
+        "maximum_volume_ul": 200,
+        "accuracy_range": "10-200 µL",
+        "volume_ranges": [
+          {
+            "range_ul": "2-10",
+            "cv_percent": "7.5"
+          },
+          {
+            "range_ul": "10-50",
+            "cv_percent": "4.0"
+          },
+          {
+            "range_ul": "50-200",
+            "cv_percent": "2.0"
+          }
+        ]
+      },
+      "physical_specifications": {
+        "length_mm": 59.3,
+        "outer_diameter_mm": 2.4,
+        "inner_diameter_mm": 1.6,
+        "material": "Polypropylene",
+        "surface_coating": "Ultra-Slip",
+        "tip_color": "Clear/Natural"
+      },
+      "compatibility": {
+        "hamilton_models": [
+          "MICROLAB STAR",
+          "VANTAGE",
+          "INTERPRETER™",
+          "STARlet®",
+          "NIMBUS"
+        ],
+        "head_type": "8-channel or 96-channel"
+      },
+      "features": [
+        "Enhanced accuracy and precision",
+        "Ultra-Slip coating reduces protein binding",
+        "Sterile and pyrogen-free",
+        "Individually wrapped in paper/plastic",
+        "Ready-to-use format",
+        "Compatible with aqueous and organic solutions"
+      ],
+      "packaging": {
+        "format": "96 tips per rack",
+        "sterility": "Sterile",
+        "pyrogen_level": "<0.01 EU/tip"
+      },
+      "storage": {
+        "temperature_c": "15-25",
+        "humidity_percent": "30-70",
+        "shelf_life_months": 24
+      },
+      "use_cases": ["general liquid handling", "serial dilutions", "assay dispensing"]
+    },
+
+    "hamilton_robotip_1000": {
+      "id": "hamilton_robotip_1000",
+      "tip_type": "Standard Volume Multi-Channel Tips",
+      "manufacturer": "Hamilton",
+      "product_line": "RoboTip® 1000",
+      "specifications": {
+        "capacity_ul": 1000,
+        "minimum_volume_ul": 10,
+        "maximum_volume_ul": 1000,
+        "accuracy_range": "500-1000 µL"
+      },
+      "physical_specifications": {
+        "length_mm": 59.3,
+        "outer_diameter_mm": 2.4,
+        "material": "Polypropylene",
+        "surface_coating": "Ultra-Slip"
+      },
+      "compatibility": {
+        "hamilton_models": [
+          "MICROLAB STAR",
+          "VANTAGE",
+          "STARlet®",
+          "NIMBUS"
+        ]
+      },
+      "features": [
+        "Large volume capacity",
+        "Ultra-Slip coating",
+        "Sterile and pyrogen-free"
+      ],
+      "packaging": {
+        "format": "96 tips per rack",
+        "sterility": "Sterile"
+      },
+      "storage": {
+        "temperature_c": "15-25",
+        "shelf_life_months": 24
+      },
+      "use_cases": ["large volume transfers", "reservoir handling", "stock solution preparation"]
+    },
+
+    "hamilton_robotip_filter_200": {
+      "id": "hamilton_robotip_filter_200",
+      "tip_type": "Filtered Multi-Channel Tips",
+      "manufacturer": "Hamilton",
+      "product_line": "RoboTip® 200 with Filter",
+      "specifications": {
+        "capacity_ul": 200,
+        "minimum_volume_ul": 2,
+        "maximum_volume_ul": 200,
+        "filter_type": "Aerosol barrier filter (0.2 µm)"
+      },
+      "physical_specifications": {
+        "length_mm": 59.3,
+        "material": "Polypropylene",
+        "surface_coating": "Ultra-Slip"
+      },
+      "features": [
+        "Aerosol barrier filter prevents contamination",
+        "Sterile and pyrogen-free",
+        "Individually wrapped"
+      ],
+      "packaging": {
+        "format": "96 tips per rack",
+        "sterility": "Sterile"
+      },
+      "use_cases": ["PCR work", "sensitive biologics", "contamination prevention", "high-risk applications"]
+    },
+
+    "hamilton_robotip_lpb_200": {
+      "id": "hamilton_robotip_lpb_200",
+      "tip_type": "Low Protein Binding Tips",
+      "manufacturer": "Hamilton",
+      "product_line": "RoboTip® LpB",
+      "specifications": {
+        "capacity_ul": 200,
+        "minimum_volume_ul": 2,
+        "maximum_volume_ul": 200,
+        "accuracy_range": "10-200 µL"
+      },
+      "physical_specifications": {
+        "length_mm": 59.3,
+        "material": "Polypropylene",
+        "surface_coating": "Low protein binding coating"
+      },
+      "features": [
+        "Minimizes protein loss (typically <5%)",
+        "Special surface treatment",
+        "Sterile and pyrogen-free"
+      ],
+      "packaging": {
+        "format": "96 tips per rack",
+        "sterility": "Sterile"
+      },
+      "use_cases": ["antibody handling", "recombinant proteins", "enzyme assays", "biologics"]
+    }
+  },
+
+  "reagent_containers": {
+    "tube_15ml": {
+      "id": "tube_15ml",
+      "type": "Screw-cap tube",
+      "volume_ul": 15000,
+      "material": "Polypropylene",
+      "size": "15 mL",
+      "cap_type": "Screw cap",
+      "description": "For stock solution storage",
+      "use_cases": ["stock solution", "concentrated reagents"]
+    },
+
+    "reservoir_50ml": {
+      "id": "reservoir_50ml",
+      "type": "Deep-well reservoir",
+      "volume_ul": 50000,
+      "material": "Polypropylene",
+      "size": "50 mL",
+      "well_depth_mm": 60,
+      "description": "For diluent and buffer storage",
+      "features": [
+        "Graduated markings",
+        "Vented cap",
+        "Compatible with Hamilton multi-channel pipetting"
+      ],
+      "use_cases": ["diluent storage", "buffer storage", "high-volume reagent handling"]
+    },
+
+    "reservoir_100ml": {
+      "id": "reservoir_100ml",
+      "type": "Deep-well reservoir",
+      "volume_ul": 100000,
+      "material": "Polypropylene",
+      "size": "100 mL",
+      "well_depth_mm": 70,
+      "description": "Large capacity diluent reservoir",
+      "features": [
+        "Extra large volume",
+        "Vented cap",
+        "Graduated markings"
+      ],
+      "use_cases": ["high-volume experiments", "extended protocols", "large-scale dilutions"]
+    }
+  },
+
+  "tip_racks": {
+    "hamilton_tiprack_96": {
+      "id": "hamilton_tiprack_96",
+      "manufacturer": "Hamilton",
+      "type": "96-tip rack",
+      "capacity": 96,
+      "format": "8 rows × 12 columns",
+      "compatible_with": [
+        "MICROLAB STAR",
+        "VANTAGE",
+        "STARlet®",
+        "NIMBUS"
+      ],
+      "description": "Standard Hamilton 96-tip rack for 8-channel or 96-channel operation"
+    }
+  }
+}

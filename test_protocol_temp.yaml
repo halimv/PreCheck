@@ -1,0 +1,19 @@
+steps:
+- action: tips_on
+  channels:
+  - 0
+  column: 1
+  labware: hamilton_tiprack_96
+  step: 1
+- action: tips_off
+  labware: waste
+  step: 2
+- action: tips_on
+  channels:
+  - 0
+  column: 2
+  labware: hamilton_tiprack_96
+  step: 3
+- action: tips_off
+  labware: waste
+  step: 4

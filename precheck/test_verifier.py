@@ -2,28 +2,28 @@ import pytest
 import json
 import yaml
 import os
-from precheck.verifier import Verifier, SafetyGateError
+from pipeline.stage1_verifier import Verifier, SafetyGateError
 
 
 @pytest.fixture
-def precheck_dir():
-    """Return path to precheck directory."""
-    return os.path.join(os.path.dirname(__file__))
+def project_root():
+    """Return path to project root."""
+    return os.path.dirname(os.path.dirname(__file__))
 
 
 @pytest.fixture
-def labware_config_path(precheck_dir):
-    return os.path.join(precheck_dir, "labware_config.json")
+def labware_config_path(project_root):
+    return os.path.join(project_root, "config", "labware.json")
 
 
 @pytest.fixture
-def protocol_config_path(precheck_dir):
-    return os.path.join(precheck_dir, "protocol_config.json")
+def protocol_config_path(project_root):
+    return os.path.join(project_root, "config", "protocol_defaults.json")
 
 
 @pytest.fixture
-def protocol_plan_path(precheck_dir):
-    return os.path.join(precheck_dir, "protocol_plan.yaml")
+def protocol_plan_path(project_root):
+    return os.path.join(project_root, "protocols", "serial_dilution_v0.yaml")
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def verifier(labware_config_path, protocol_plan_path, protocol_config_path):
 class TestVolumeVerification:
     """Test edge cases for volume verification (dead volume enforcement: 30-330µL)."""
 
-    def test_volume_below_minimum_aspirate_fails(self, precheck_dir, labware_config_path):
+    def test_volume_below_minimum_aspirate_fails(self, project_root, labware_config_path):
         """Aspirate that would leave <30µL dead volume should fail."""
         protocol = {
             "steps": [
@@ -47,13 +47,13 @@ class TestVolumeVerification:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "FAILED"
         assert result["error_code"] == "DRY_ASPIRATE"
 
-    def test_volume_at_minimum_boundary_ok(self, precheck_dir, labware_config_path):
+    def test_volume_at_minimum_boundary_ok(self, project_root, labware_config_path):
         """Aspirate leaving exactly 30µL should pass."""
         protocol = {
             "steps": [
@@ -66,12 +66,12 @@ class TestVolumeVerification:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "PASSED"
 
-    def test_volume_exceeds_maximum_dispense_fails(self, precheck_dir, labware_config_path):
+    def test_volume_exceeds_maximum_dispense_fails(self, project_root, labware_config_path):
         """Dispense that would exceed 330µL maximum should fail."""
         protocol = {
             "steps": [
@@ -83,13 +83,13 @@ class TestVolumeVerification:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "FAILED"
         assert result["error_code"] == "VOLUMETRIC_OVERFLOW"
 
-    def test_volume_at_maximum_boundary_ok(self, precheck_dir, labware_config_path):
+    def test_volume_at_maximum_boundary_ok(self, project_root, labware_config_path):
         """Dispense to exactly 330µL should pass."""
         protocol = {
             "steps": [
@@ -100,7 +100,7 @@ class TestVolumeVerification:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "PASSED"
@@ -109,7 +109,7 @@ class TestVolumeVerification:
 class TestContaminationTracking:
     """Test smart contamination prevention (allow reuse from same source, block different sources)."""
 
-    def test_aspirate_same_source_allowed(self, precheck_dir, labware_config_path):
+    def test_aspirate_same_source_allowed(self, project_root, labware_config_path):
         """Aspirate from same source well multiple times should be allowed."""
         protocol = {
             "steps": [
@@ -129,12 +129,12 @@ class TestContaminationTracking:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "PASSED"
 
-    def test_aspirate_different_source_without_tips_off_fails(self, precheck_dir, labware_config_path):
+    def test_aspirate_different_source_without_tips_off_fails(self, project_root, labware_config_path):
         """Aspirate from different source well without tips_off should fail."""
         protocol = {
             "steps": [
@@ -148,13 +148,13 @@ class TestContaminationTracking:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "FAILED"
         assert result["error_code"] == "CONTAMINATED_TIP"
 
-    def test_tips_off_resets_source_tracking(self, precheck_dir, labware_config_path):
+    def test_tips_off_resets_source_tracking(self, project_root, labware_config_path):
         """After tips_off, tips can be reused on different source wells."""
         protocol = {
             "steps": [
@@ -172,12 +172,12 @@ class TestContaminationTracking:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "PASSED"
 
-    def test_multichannel_contamination_tracking(self, precheck_dir, labware_config_path):
+    def test_multichannel_contamination_tracking(self, project_root, labware_config_path):
         """Each channel tracks its own contamination source independently."""
         protocol = {
             "steps": [
@@ -201,7 +201,7 @@ class TestContaminationTracking:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "FAILED"
@@ -211,7 +211,7 @@ class TestContaminationTracking:
 class TestTipTracking:
     """Test tip rack inventory and depletion."""
 
-    def test_tip_pickup_depletion(self, precheck_dir, labware_config_path):
+    def test_tip_pickup_depletion(self, project_root, labware_config_path):
         """Tips should be depleted from rack after pickup."""
         protocol = {
             "steps": [
@@ -223,13 +223,13 @@ class TestTipTracking:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "FAILED"
         assert result["error_code"] == "TIP_DEPLETED"
 
-    def test_tip_pickup_different_columns_ok(self, precheck_dir, labware_config_path):
+    def test_tip_pickup_different_columns_ok(self, project_root, labware_config_path):
         """Tips can be picked from different columns sequentially."""
         protocol = {
             "steps": [
@@ -242,7 +242,7 @@ class TestTipTracking:
             ]
         }
 
-        verifier = Verifier(labware_config_path, _write_temp_protocol(precheck_dir, protocol))
+        verifier = Verifier(labware_config_path, _write_temp_protocol(project_root, protocol))
         result = verifier.run_verification()
 
         assert result["status"] == "PASSED"
@@ -261,9 +261,9 @@ class TestReferenceProtocol:
 
 
 # Helper function to write temporary protocol files
-def _write_temp_protocol(precheck_dir, protocol_dict):
+def _write_temp_protocol(project_root, protocol_dict):
     """Write protocol dict to temp file and return path."""
-    temp_path = os.path.join(precheck_dir, "test_protocol_temp.yaml")
+    temp_path = os.path.join(project_root, "test_protocol_temp.yaml")
     with open(temp_path, "w") as f:
         yaml.dump(protocol_dict, f)
     return temp_path

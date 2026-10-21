@@ -1,0 +1,91 @@
+protocol_name: "2-Fold Serial Dilution Protocol"
+version: "3.0"
+description: "Serial dilution MVP with dead volume enforcement (30-330µL per well)"
+
+steps:
+  # Stage 1: Stock solution setup
+  # 1. Pick up tips for 8-channel operation from Column 1
+  - step: 1
+    action: "tips_on"
+    labware: "hamilton_tiprack_96"
+    column: 1
+    channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # 2. Aspirate stock solution from reservoir (100 µL to account for dead volume)
+  - step: 2
+    action: "aspirate"
+    labware: "reservoir_50ml"
+    column: 1
+    volume_ul: 100.0
+    channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # 3. Dispense stock into Column 1 of microplate (100µL)
+  - step: 3
+    action: "dispense"
+    labware: "corning_3595"
+    column: 1
+    volume_ul: 100.0
+    channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # 4. Eject tips to waste
+  - step: 4
+    action: "tips_off"
+    labware: "waste"
+
+  # Stage 2: Diluent setup for columns 2-12
+  # 5. Pick up new tips for 8-channel operation from Column 2
+  - step: 5
+    action: "tips_on"
+    labware: "hamilton_tiprack_96"
+    column: 2
+    channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # 6. Aspirate diluent from Reservoir Column 1
+  - step: 6
+    action: "aspirate"
+    labware: "reservoir_50ml"
+    column: 1
+    volume_ul: 50.0
+    channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # 7. Dispense diluent into Column 2 of Corning microplate
+  - step: 7
+    action: "dispense"
+    labware: "corning_3595"
+    column: 2
+    volume_ul: 50.0
+    channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # 8. Eject tips to waste
+  - step: 8
+    action: "tips_off"
+    labware: "waste"
+
+  # Stage 3: Serial Transfer (simplified to 1 dilution step as proof of concept)
+  # 9. Pick up new tips for 8-channel operation from Column 3
+  - step: 9
+    action: "tips_on"
+    labware: "hamilton_tiprack_96"
+    column: 3
+    channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # 10. Aspirate from Column 1 (stock at 100µL, will leave 50µL after aspirate)
+  - step: 10
+    action: "aspirate"
+    labware: "corning_3595"
+    column: 1
+    volume_ul: 50.0
+    channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # 11. Dispense into Column 2 (adds to 50µL diluent, total = 100µL)
+  - step: 11
+    action: "dispense"
+    labware: "corning_3595"
+    column: 2
+    volume_ul: 50.0
+    channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # 12. Eject tips to waste
+  - step: 12
+    action: "tips_off"
+    labware: "waste"

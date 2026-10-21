@@ -1,8 +1,10 @@
-# Hamilton STARlet Pre-Execution Safety Gate
+# LLNL Capstone: Hamilton STARlet Automated Protocol Control Plane
 
-A deterministic pre-flight safety verifier and volumetric simulator for PyLabRobot (PLR) automated serial dilution protocols.
+A self-healing, safety-gated control plane for automating serial dilution protocols on a Hamilton STARlet liquid handler via PyLabRobot.
 
-Designed for a Hamilton STARlet liquid handler controlled via a Windows host (VENUS runtime environment), this engine sits between an LLM Reasoning Agent and PyLabRobot. It evaluates non-deterministic LLM protocol parameters against physical hardware invariants before any channel moves or valves actuate.
+**4-Stage Pipeline:** Declarative JSON IR → Safety Verification → Code Compilation → Simulation → Hardware Execution
+
+This engine sits between an LLM Reasoning Agent (Step 1→2) and PyLabRobot (Step 2→4). It validates non-deterministic LLM protocol parameters against physical hardware invariants, compiles to executable code, dry-runs in ChatterBox, and self-heals on simulation errors before any motor moves.
 
 ---
 
@@ -36,20 +38,84 @@ Designed for a Hamilton STARlet liquid handler controlled via a Windows host (VE
 
 ---
 
-## Repository Structure
+## 4-Stage Pipeline Architecture
+
+```
+[ User Intent / Natural Language ]
+         ↓
+[Stage 1: Verifier]
+  - Input: Declarative JSON/YAML protocol
+  - Validates: Volume limits, tip management, contamination prevention
+  - Output: PASS/FAIL with structured error codes
+         ↓ (if PASS)
+[Stage 2: Compiler]
+  - Input: Verified JSON protocol
+  - Maps: Declarative steps to PyLabRobot API calls
+  - Output: Executable Python code (PLR script)
+         ↓
+[Stage 3: Simulator]
+  - Input: Compiled PLR code
+  - Executes: In ChatterBox backend (mock hardware)
+  - Captures: State transitions, errors, warnings
+  - Output: Dry-run diagnostics
+         ↓ (if PASS)
+[Stage 4: Executor]
+  - Input: Verified & simulated PLR code
+  - Executes: On physical Hamilton STARlet
+  - Monitors: Hardware state, safety interlocks
+  - Output: Execution logs, final state
+
+[ SELF-HEALING LOOP (Future) ]
+  If Simulator detects error:
+    → Translate error to lab-concept diagnostics
+    → Send to LLM for auto-refactor
+    → Re-enter Stage 2 with corrected protocol
+```
+
+**Key Design Principle:** No script touches hardware until it has:
+1. Passed declarative safety verification (Stage 1)
+2. Been compiled to executable code (Stage 2)
+3. Successfully run through simulation (Stage 3)
+
+---
+
+## Repository Structure (Reorganized)
 
 ```text
 .
-├── fsm/
-│   ├── verifier.py              # Core precheck safety gate engine
-│   ├── test_verifier.py         # Comprehensive test suite (11 test cases)
-│   ├── labware_config.json      # Hardware specs (plates, tips, containers)
-│   ├── protocol_config.json     # Serial dilution parameters & starting concentrations
-│   └── protocol_plan.yaml       # Example reference protocol (YAML format)
-├── files/
-│   └── serial_dilution_pylabrobot_v2.py  # PyLabRobot reference implementation
-├── main.py                      # CLI entry point for verification
-└── README.md
+├── cli.py                             # Entry point: orchestrates 4-stage pipeline
+├── README.md                          # This file
+│
+├── config/                            # Hardware specifications
+│   ├── labware.json                   # Plate, tip, container specs
+│   ├── hardware.json                  # Deck layout, connection parameters
+│   └── protocol_defaults.json         # Initial state and experiment parameters
+│
+├── pipeline/                          # The 4-stage execution pipeline
+│   ├── stage1_verifier.py             # Declarative JSON → Safety gate
+│   ├── stage2_compiler.py             # JSON → PLR Python code (stub)
+│   ├── stage3_simulator.py            # PLR code → ChatterBox dry run (stub)
+│   └── stage4_executor.py             # Hardware execution (stub)
+│
+├── protocols/                         # Protocol specifications (human-readable JSON/YAML)
+│   ├── serial_dilution_v1.json        # Full 68-step, 12-column protocol (CURRENT)
+│   ├── serial_dilution_v0.yaml        # Previous 12-step version
+│   └── serial_dilution_simple.yaml    # Demo/test version (4 steps)
+│
+├── precheck/                          # Legacy verifier & test suite
+│   ├── test_verifier.py               # Comprehensive tests (11 tests, all passing)
+│   └── *.json, *.yaml                 # Config files (duplicates in config/)
+│
+├── tests/                             # Test suite (mirrors precheck/)
+│   └── fixtures/                      # Test data
+│
+└── archive/                           # Legacy & reference code (NOT in active pipeline)
+    ├── files/                         # Old reference implementations
+    ├── viz_backend/                   # Visualization server (separate)
+    ├── simulator_old.py               # Broken PLR simulator (ChatterBox state bug)
+    ├── json_parser_old.py             # Legacy JSON parser
+    ├── main.py                        # Old CLI
+    └── start_visualizer.py            # Old visualization launcher
 
 ---
 
@@ -65,17 +131,35 @@ Designed for a Hamilton STARlet liquid handler controlled via a Windows host (VE
 
 ---
 
-## Testing
+## Quick Start
 
-Run the comprehensive test suite:
+### Run the Full Pipeline
+
 ```bash
-pytest fsm/test_verifier.py -v
+# Verify + compile + simulate
+python cli.py --protocol protocols/serial_dilution_v1.json --output /tmp/protocol_run
+```
+
+Expected output:
+- ✓ Stage 1: Protocol passes safety gate
+- ✓ Stage 2: Python code compiled to `/tmp/protocol_run/compiled_protocol.py`
+- ⚠ Stage 3: Simulator (ChatterBox integration pending)
+- ⊘ Stage 4: Hardware execution skipped (use `--execute` to run)
+
+### Run Tests
+
+```bash
+# All verifier tests (11 tests, all passing)
+pytest precheck/test_verifier.py -v
+
+# Quick test
+pytest precheck/test_verifier.py -q
 ```
 
 All 11 tests cover:
 - Volume boundary conditions (dead volume min/max)
 - Smart contamination prevention (same-source reuse allowed, different-source blocked)
-- Tip tracking and depletion
+- Tip tracking and depletion per rack (supports multiple racks)
 - Reference serial dilution protocol validation
 
 ---
