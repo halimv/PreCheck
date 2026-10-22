@@ -16,7 +16,7 @@ import re
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from pipeline.stage1_verifier import Verifier
 from pipeline.stage2_compiler import ACTIONS, CompilationError, compile_protocol, translate_step
@@ -302,7 +302,15 @@ class SelfHealer:
         code = gate.detail.get("error_code", gate.stage)
         return f"- {code} (\"{gate.summary}\") was fixed: " + "; ".join(changes)
 
-    def heal(self, protocol: Dict[str, Any], max_rounds: int = 5) -> HealResult:
+    def heal(
+        self,
+        protocol: Dict[str, Any],
+        max_rounds: int = 5,
+        on_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    ) -> HealResult:
+        """Run the repair loop. `on_event(kind, data)`, if given, is called as each round progresses:
+        "gate" (stages 1-3 result), "model_request", "model_reply" and "edits" (accepted or rejected)."""
+        emit = on_event or (lambda kind, data: None)
         current = copy.deepcopy(protocol)
         rounds: List[Dict[str, Any]] = []
         history: List[str] = []
@@ -318,14 +326,21 @@ class SelfHealer:
             record: Dict[str, Any] = {"round": round_num, "stage": gate.stage, "passed": gate.passed, "result": gate.summary}
             rounds.append(record)
             print(f"  round {round_num}: {gate.stage} {'PASSED' if gate.passed else 'FAILED'} - {gate.summary}")
+            emit("gate", {
+                "round": round_num, "stage": gate.stage, "passed": gate.passed, "summary": gate.summary,
+                "step": gate.step, "step_count": len(current["steps"]), "feedback": gate.feedback,
+                **{k: gate.detail.get(k) for k in ("error_code", "explanation", "suggested_fixes", "raw_error")},
+            })
             if gate.passed:
                 return HealResult("ALREADY_PASSING" if round_num == 0 else "HEALED", current, rounds)
             if round_num == max_rounds:
                 break
 
+            emit("model_request", {"round": round_num, "model": getattr(self.backend, "model", "")})
             reply = self.backend.propose_edits(SYSTEM_PROMPT, self._prompt(current, gate, history))
             record["model_reasoning"] = reply.get("reasoning", "")
             record["edits"] = reply.get("edits", [])
+            emit("model_reply", {"round": round_num, "reasoning": record["model_reasoning"], "edits": record["edits"]})
             print(f"    model: {record['model_reasoning'][:300]}")
             updated, errors = apply_edits(current, record["edits"], self.labware_kinds, allowed_step=gate.step)
             if not errors:
@@ -339,9 +354,12 @@ class SelfHealer:
             if errors:
                 record["edit_errors"] = errors
                 print(f"    edits rejected: {errors}")
+                emit("edits", {"round": round_num, "accepted": False, "errors": errors})
                 rejection = "\nYour previous attempt was rejected: " + "; ".join(errors)
                 continue
             print(f"    applied: {self._describe(gate, record['edits'])[2:]}")
+            emit("edits", {"round": round_num, "accepted": True, "description": self._describe(gate, record["edits"])[2:],
+                           "step_count": len(updated["steps"])})
             history.append(self._describe(gate, record["edits"]))
             current = updated
 

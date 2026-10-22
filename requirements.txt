@@ -1,6 +1,8 @@
 pylabrobot==0.2.2
 pyyaml
 pytest
+# demo/server.py
+flask
 # notebooks/pipeline_walkthrough.ipynb
 pandas
 ipykernel

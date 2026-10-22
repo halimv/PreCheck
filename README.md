@@ -115,6 +115,18 @@ For self-healing, install [Ollama](https://ollama.com) and pull the default mode
 ollama pull qwen2.5-coder:7b
 ```
 
+## Live demo
+
+A local web page that runs the self-healing loop and shows each round as it happens: which stage failed, the
+lab-concept diagnostic, the model's reasoning and proposed edits, and whether the harness accepted them. When the
+protocol passes, **Watch in PyLabRobot's visualizer** opens PLR's own visualizer in a new tab and replays it (Stage 4).
+
+```bash
+python demo/server.py            # then open http://127.0.0.1:8000  (--port to change)
+```
+
+Needs Ollama running with a model pulled. Runs are saved to `build/demo/<run id>/`, one run at a time.
+
 ## Usage
 
 Run Stages 1–3 once and print the diagnostic on failure:
@@ -187,6 +199,9 @@ for documented runs, and never over the original.
 │   ├── serial_dilution_v1.json   # Full 68-step serial dilution; fixed known-bad reference (don't overwrite)
 │   ├── serial_dilution_v0.yaml   # Earlier 12-step version (used by the verifier tests)
 │   └── serial_dilution_simple.yaml
+├── demo/
+│   ├── server.py                 # Live self-healing demo (Flask + Server-Sent Events)
+│   └── static/                   # The demo page: index.html, app.js, style.css
 ├── notebooks/
 │   └── pipeline_walkthrough.ipynb
 ├── tests/

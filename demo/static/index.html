@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Self-Healing Protocol Demo</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Self-healing protocol demo</h1>
+        <p>Hamilton STARlet · PyLabRobot · local model</p>
+      </div>
+
+      <form id="run-form" class="panel">
+        <label class="field">
+          <span>Protocol</span>
+          <select id="protocol" required></select>
+        </label>
+        <label class="field">
+          <span>Repair model (Ollama)</span>
+          <select id="model" required></select>
+          <small id="model-note" class="note"></small>
+        </label>
+        <fieldset class="field">
+          <legend>What the model sees on a failure</legend>
+          <label class="radio"><input type="radio" name="feedback" value="translated" checked> Lab-concept diagnostic</label>
+          <label class="radio"><input type="radio" name="feedback" value="raw"> Raw PyLabRobot error only</label>
+        </fieldset>
+        <label class="field">
+          <span>Maximum repair rounds</span>
+          <input id="max-rounds" type="number" min="1" max="10" value="5">
+        </label>
+        <button id="start" type="submit" class="primary">Run self-healing</button>
+      </form>
+
+      <section class="panel" id="protocol-card" hidden>
+        <h2>Selected protocol</h2>
+        <p id="protocol-name" class="strong"></p>
+        <dl class="kv">
+          <dt>Steps</dt><dd id="protocol-steps"></dd>
+          <dt>Reagents loaded</dt><dd id="protocol-volumes"></dd>
+        </dl>
+      </section>
+
+      <section class="panel legend">
+        <h2>Each round</h2>
+        <ol>
+          <li><b>Verifier</b> checks the plan against safety rules</li>
+          <li><b>Compiler</b> turns it into PyLabRobot code</li>
+          <li><b>Simulator</b> runs that code on PLR's ChatterBox backend</li>
+        </ol>
+        <p>On a failure, the model proposes edits to the plan. The harness accepts them only if they fix
+          the failing step without changing how much liquid is moved. A passing plan can then be replayed in
+          PyLabRobot's own visualizer.</p>
+      </section>
+    </aside>
+
+    <main class="main">
+      <div class="statusbar">
+        <span id="status-chip" class="chip idle">Idle</span>
+        <span id="status-text" class="muted">Choose a protocol and start a run.</span>
+        <span id="elapsed" class="elapsed"></span>
+      </div>
+
+      <div id="empty" class="empty">
+        <h2>Watch a protocol repair itself</h2>
+        <p>Each round runs the plan through the three checking stages. When one fails, you'll see the
+          diagnostic, the model's reasoning and proposed edits, and whether the harness accepts them, as it happens.</p>
+      </div>
+
+      <div id="timeline" class="timeline" aria-live="polite"></div>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

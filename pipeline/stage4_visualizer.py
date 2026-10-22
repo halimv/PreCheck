@@ -57,6 +57,52 @@ class VisualizerSession:
             await self.lh.stop()
 
 
+async def start_visualizer(
+    protocol: Dict[str, Any],
+    deck_config: Dict[str, Any],
+    open_browser: bool = True,
+    name: Optional[str] = None,
+) -> VisualizerSession:
+    """Build a fresh ChatterBox deck for `protocol` and start the visualizer on it (no steps run yet)."""
+    set_tip_tracking(True)
+    set_volume_tracking(True)
+    deck, resources = build_deck(deck_config, protocol.get("initial_volumes_ul"))
+    lh = LiquidHandler(backend=LiquidHandlerChatterboxBackend(num_channels=8), deck=deck)
+    visualizer = Visualizer(resource=lh, open_browser=open_browser, name=name or protocol.get("protocol_name"))
+    with contextlib.redirect_stdout(io.StringIO()):  # hide ChatterBox's and the servers' printouts
+        await lh.setup()
+        await visualizer.setup()
+    return VisualizerSession(visualizer, lh, resources, f"http://{visualizer.host}:{visualizer.fs_port}")
+
+
+async def replay(
+    session: VisualizerSession,
+    protocol: Dict[str, Any],
+    deck_config: Dict[str, Any],
+    step_delay_s: float = 0.4,
+    wait_for_browser_s: float = 20.0,
+) -> None:
+    """Wait up to `wait_for_browser_s` for the page to connect, then run `protocol` step by step.
+
+    The visualizer stays running afterwards. Exceptions from the protocol propagate (stage 3 should
+    have caught them already) and stop the session.
+    """
+    namespace: Dict[str, Any] = {}
+    exec(compile(compile_protocol(protocol, deck_config), "<stage4_replay>", "exec"), namespace)
+
+    for _ in range(int(wait_for_browser_s / 0.2)):
+        if session.visualizer.has_connection():
+            break
+        await asyncio.sleep(0.2)
+
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            await namespace["run_protocol"](Paced(session.lh, step_delay_s), session.resources)
+    except Exception:
+        await session.stop()
+        raise
+
+
 async def visualize_protocol(
     protocol: Dict[str, Any],
     deck_config: Dict[str, Any],
@@ -65,34 +111,7 @@ async def visualize_protocol(
     wait_for_browser_s: float = 20.0,
     name: Optional[str] = None,
 ) -> VisualizerSession:
-    """Start the visualizer and replay `protocol` on a fresh ChatterBox deck.
-
-    Waits up to `wait_for_browser_s` for the page to connect before replaying, then leaves the
-    visualizer running so the final deck state can be inspected. Exceptions from the protocol
-    propagate; stage 3 should have caught them already.
-    """
-    set_tip_tracking(True)
-    set_volume_tracking(True)
-    namespace: Dict[str, Any] = {}
-    exec(compile(compile_protocol(protocol, deck_config), "<stage4_replay>", "exec"), namespace)
-
-    deck, resources = build_deck(deck_config, protocol.get("initial_volumes_ul"))
-    lh = LiquidHandler(backend=LiquidHandlerChatterboxBackend(num_channels=8), deck=deck)
-    visualizer = Visualizer(resource=lh, open_browser=open_browser, name=name or protocol.get("protocol_name"))
-    with contextlib.redirect_stdout(io.StringIO()):  # hide ChatterBox's and the servers' printouts
-        await lh.setup()
-        await visualizer.setup()
-    session = VisualizerSession(visualizer, lh, resources, f"http://{visualizer.host}:{visualizer.fs_port}")
-
-    for _ in range(int(wait_for_browser_s / 0.2)):
-        if visualizer.has_connection():
-            break
-        await asyncio.sleep(0.2)
-
-    try:
-        with contextlib.redirect_stdout(io.StringIO()):
-            await namespace["run_protocol"](Paced(lh, step_delay_s), resources)
-    except Exception:
-        await session.stop()
-        raise
+    """Start the visualizer and replay `protocol` on it; returns the still-running session."""
+    session = await start_visualizer(protocol, deck_config, open_browser=open_browser, name=name)
+    await replay(session, protocol, deck_config, step_delay_s=step_delay_s, wait_for_browser_s=wait_for_browser_s)
     return session
