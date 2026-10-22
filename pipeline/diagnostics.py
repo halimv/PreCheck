@@ -8,7 +8,7 @@ terms, the relevant numbers, and the IR changes that would fix it.
 
 import math
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pylabrobot.liquid_handling.errors import ChannelizedError, ChannelsDoNotFitError
 from pylabrobot.resources.errors import (
@@ -102,7 +102,7 @@ def translate(
         requested = re.findall(r"([\d.]+)uL", str(err))
         fixes = [f"Lower volume_ul in step {n} so the source keeps enough liquid."]
         detail = ""
-        if labware in protocol.get("initial_volumes_ul", {}):
+        if labware is not None and labware in protocol.get("initial_volumes_ul", {}):
             start = protocol["initial_volumes_ul"][labware]
             needed = planned_aspirate_ul(protocol, labware)
             load = math.ceil(needed * 1.1 / 50) * 50  # 10% margin, rounded up to 50 uL

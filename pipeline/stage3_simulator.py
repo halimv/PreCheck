@@ -7,6 +7,7 @@ returns a lab-concept diagnostic (pipeline/diagnostics.py).
 """
 
 import asyncio
+import concurrent.futures
 import contextlib
 import io
 import re
@@ -54,7 +55,13 @@ class PLRSimulator:
         self.deck_config = deck_config
 
     def run(self, module_code: str, protocol: Dict[str, Any]) -> SimulationResult:
-        return asyncio.run(self._run(module_code, protocol))
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self._run(module_code, protocol))
+        # Already inside an event loop (e.g. Jupyter): run the simulation on its own loop in a worker thread.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, self._run(module_code, protocol)).result()
 
     async def _run(self, module_code: str, protocol: Dict[str, Any]) -> SimulationResult:
         set_tip_tracking(True)

@@ -1,0 +1,6 @@
+pylabrobot==0.2.2
+pyyaml
+pytest
+# notebooks/pipeline_walkthrough.ipynb
+pandas
+ipykernel

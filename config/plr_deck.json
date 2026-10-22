@@ -1,5 +1,5 @@
 {
-  "description": "PyLabRobot deck layout for the Hamilton STARlet. Maps each labware ID used in protocols/ to a PLR resource factory and a carrier position. Stage 2 (compiler), stage 3 (simulator) and stage 4 (executor) all build the deck from this file; starting reagent volumes live in the protocol IR.",
+  "description": "PyLabRobot deck layout for the Hamilton STARlet. Maps each labware ID used in protocols/ to a PLR resource factory and a carrier position. Stage 2 (compiler), stage 3 (simulator), stage 4 (visualizer) and stage 5 (executor) all build the deck from this file; starting reagent volumes live in the protocol IR.",
   "plr_version": "0.2.2",
   "deck": "STARLetDeck",
   "carriers": [

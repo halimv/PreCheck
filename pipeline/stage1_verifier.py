@@ -7,7 +7,7 @@ before any code is compiled or executed.
 import yaml
 import json
 import os
-from typing import Dict, Any, List
+from typing import Any, Dict, Optional, Tuple
 
 
 class SafetyGateError(ValueError):
@@ -40,7 +40,7 @@ class Verifier:
     - CONTAMINATED_TIP: attempting cross-contamination (different source well)
     """
 
-    def __init__(self, labware_path: str, plan_path: str, config_path: str = None):
+    def __init__(self, labware_path: str, plan_path: str, config_path: Optional[str] = None):
         with open(labware_path, "r") as f:
             self.labware_lib = json.load(f)
         with open(plan_path, "r") as f:
@@ -83,7 +83,7 @@ class Verifier:
         self.channel_mounted_tips = mounted if len(mounted) == 8 else [False] * 8
 
         # Contamination tracking: per-channel source well (None = clean)
-        self.tip_source_well = {ch: None for ch in range(8)}
+        self.tip_source_well: Dict[int, Optional[Tuple[Optional[str], int]]] = {ch: None for ch in range(8)}
 
     def run_verification(self) -> Dict[str, Any]:
         try:
@@ -103,7 +103,7 @@ class Verifier:
                 "message": str(e)
             }
 
-    def _get_plate_specs(self, labware: str) -> Dict[str, Any]:
+    def _get_plate_specs(self, labware: Optional[str]) -> Dict[str, Any]:
         """Get volume specs from labware.json for given labware."""
         if labware in self.labware_lib.get("plates", {}):
             return self.labware_lib["plates"][labware]["well_specifications"]["well_volume_range"]

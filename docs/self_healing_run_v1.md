@@ -5,7 +5,7 @@
 **Repair model:** `qwen2.5-coder:7b` via Ollama 0.33.1 (local, temperature 0, `num_ctx` 32768)
 **Simulator:** PyLabRobot 0.2.2, `LiquidHandlerChatterboxBackend`, tip and volume tracking on
 **Outcome:** Healed in 3 repair rounds (run 5); runs 1–4 gave up and led to harness fixes
-**Run artifacts:** [`docs/runs/2026-10-21_v1_qwen2.5-coder-7b/`](runs/2026-10-21_v1_qwen2.5-coder-7b/) (`heal_log.json`, `serial_dilution_v1_healed.json`)
+**Run artifacts:** [`docs/runs/2026-10-21_v1_qwen2.5-coder-7b/`](runs/2026-10-21_v1_qwen2.5-coder-7b/) (`heal_log.json`, `serial_dilution_v1_healed.json`, and its compiled PLR code `serial_dilution_v1_healed_plr.py`)
 
 ---
 

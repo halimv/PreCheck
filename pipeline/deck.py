@@ -1,6 +1,6 @@
 """Build the PyLabRobot deck described by config/plr_deck.json.
 
-Deck construction is fixed config, not model output: stages 2-4 all build the same
+Deck construction is fixed config, not model output: stages 2-5 all build the same
 deck from the same file. Starting reagent volumes come from the protocol IR
 (`initial_volumes_ul`), because how much liquid the scientist loads is part of the plan.
 """
@@ -42,8 +42,9 @@ def build_deck(
         deck.assign_child_resource(carriers[spec["name"]], rails=spec["rails"])
 
     for labware_id, volume in (initial_volumes_ul or {}).items():
-        if labware_id not in resources:
-            raise KeyError(f"initial_volumes_ul names unknown labware '{labware_id}'")
-        resources[labware_id].tracker.set_volume(volume)
+        container = resources.get(labware_id)
+        if not isinstance(container, plr.Container):
+            raise KeyError(f"initial_volumes_ul names '{labware_id}', which is not a container on the deck")
+        container.tracker.set_volume(volume)
 
     return deck, resources

@@ -157,13 +157,14 @@ def apply_edits(
         op = edit.get("op")
         if op == "set_initial_volume":
             lid, vol = edit.get("labware"), edit.get("volume_ul")
-            if labware_kinds.get(lid) != "container" or not isinstance(vol, (int, float)) or vol < 0:
+            if not isinstance(lid, str) or labware_kinds.get(lid) != "container" \
+                    or not isinstance(vol, (int, float)) or vol < 0:
                 errors.append(f"set_initial_volume needs a container ID from the deck and a volume >= 0, got {edit}.")
                 continue
             new.setdefault("initial_volumes_ul", {})[lid] = vol
         elif op == "replace_step":
             n = edit.get("step")
-            if n not in by_number:
+            if not isinstance(n, int) or n not in by_number:
                 errors.append(f"replace_step refers to step {n}, which does not exist.")
                 continue
             if allowed_step is not None and n != allowed_step:
@@ -236,6 +237,7 @@ class SelfHealer:
         if sim.status == "PASSED":
             return GateResult("simulate", True, sim.message)
         d = sim.diagnostic
+        assert d is not None, "a failed simulation always carries a diagnostic"
         if self.feedback_mode == "raw":
             feedback = f"Simulation failed at step {d['step']}: {d['raw_error']}"
         else:

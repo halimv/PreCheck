@@ -24,6 +24,7 @@ import yaml
 
 from pipeline.deck import load_deck_config
 from pipeline.self_heal import OllamaBackend, SelfHealer, ir_diff
+from pipeline.stage2_compiler import compile_protocol
 from pipeline.stage4_executor import HardwareExecutor
 
 CONFIG_DIR = Path(__file__).parent / "config"
@@ -75,7 +76,10 @@ def main():
         if result.status == "HEALED":
             healed_path = out_dir / f"{stem}_healed.json"
             healed_path.write_text(json.dumps(result.protocol, indent=2))
-            print(f"Healed IR (needs scientist review before use): {healed_path}\n")
+            healed_plr_path = out_dir / f"{stem}_healed_plr.py"
+            healed_plr_path.write_text(compile_protocol(result.protocol, deck_config))
+            print(f"Healed IR (needs scientist review before use): {healed_path}")
+            print(f"Compiled healed PLR protocol: {healed_plr_path}\n")
             print(ir_diff(protocol, result.protocol))
         if result.status == "GAVE_UP":
             sys.exit(1)

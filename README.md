@@ -1,174 +1,221 @@
-# LLNL Capstone: Hamilton STARlet Automated Protocol Control Plane
+# LLNL Capstone: Self-Healing Control Plane for a Hamilton STARlet
 
-A self-healing, safety-gated control plane for automating serial dilution protocols on a Hamilton STARlet liquid handler via PyLabRobot.
+A safety-gated pipeline that takes a liquid-handling protocol, written as human-readable JSON, and makes sure it
+runs cleanly in PyLabRobot's simulator before it could ever reach the robot. When the simulation fails, the
+failure is translated into lab terms and a **local** language model repairs the protocol, under checks that stop
+it from changing the experiment.
 
-**4-Stage Pipeline:** Declarative JSON IR → Safety Verification → Code Compilation → Simulation → Hardware Execution
-
-This engine sits between an LLM Reasoning Agent (Step 1→2) and PyLabRobot (Step 2→4). It validates non-deterministic LLM protocol parameters against physical hardware invariants, compiles to executable code, dry-runs in ChatterBox, and self-heals on simulation errors before any motor moves.
-
----
-
-## Target Hardware & Labware Config
-
-* **Liquid Handler:** Hamilton STARlet
-* **Software Framework:** PyLabRobot (`pylabrobot.liquid_handling.LiquidHandler` with `STAR` backend)
-* **Plates:** Corning 96-Well Clear Flat Bottom Microplates
-  * *Max Well Volume:* $360\,\mu\text{L}$
-  * *Dead Volume:* $30\,\mu\text{L}$
-* **Tips:** Hamilton Filtered Tips ($200\,\mu\text{L}$)
+**Start here:** [`notebooks/pipeline_walkthrough.ipynb`](notebooks/pipeline_walkthrough.ipynb) runs every stage
+on the serial dilution protocol and shows what each module takes in and hands on, ending with the repaired
+protocol replayed in PyLabRobot's browser visualizer.
+[`docs/self_healing_run_v1.md`](docs/self_healing_run_v1.md) is the write-up of the first successful repair run.
 
 ---
 
-## Core Safety Invariants
-
-**Phase 1 MVP (Current Implementation):**
-
-1. **Dead Volume Enforcement (30-330µL):** 
-   - Enforces 30µL minimum (dead volume, inaccessible residual)
-   - Enforces 330µL maximum (360µL capacity - 30µL dead volume)
-   - Prevents aspirate that would leave <30µL or dispense exceeding 330µL
-
-2. **Tip Management & Cross-Contamination Prevention:**
-   - Smart contamination tracking: tips can be reused for same source well (serial dilution pattern)
-   - Blocks aspirates from different source wells without `tips_off` (prevents cross-talk)
-   - 96-tip rack position-based inventory (tracks which positions depleted)
-   - 8-channel head per-channel contamination state (independent tracking per channel)
-
-3. **Pipetting Range:** Enforces single-step volume transfers within $1.0\,\mu\text{L} - 200.0\,\mu\text{L}$ (Hamilton $200\,\mu\text{L}$ filtered tip specs).
-
----
-
-## 4-Stage Pipeline Architecture
+## How it works
 
 ```
-[ User Intent / Natural Language ]
-         ↓
-[Stage 1: Verifier]
-  - Input: Declarative JSON/YAML protocol
-  - Validates: Volume limits, tip management, contamination prevention
-  - Output: PASS/FAIL with structured error codes
-         ↓ (if PASS)
-[Stage 2: Compiler]
-  - Input: Verified JSON protocol
-  - Maps: Declarative steps to PyLabRobot API calls
-  - Output: Executable Python code (PLR script)
-         ↓
-[Stage 3: Simulator]
-  - Input: Compiled PLR code
-  - Executes: In ChatterBox backend (mock hardware)
-  - Captures: State transitions, errors, warnings
-  - Output: Dry-run diagnostics
-         ↓ (if PASS)
-[Stage 4: Executor]
-  - Input: Verified & simulated PLR code
-  - Executes: On physical Hamilton STARlet
-  - Monitors: Hardware state, safety interlocks
-  - Output: Execution logs, final state
-
-[ SELF-HEALING LOOP (Future) ]
-  If Simulator detects error:
-    → Translate error to lab-concept diagnostics
-    → Send to LLM for auto-refactor
-    → Re-enter Stage 2 with corrected protocol
+                 ┌─────────────────────── one round ───────────────────────┐
+ protocol IR ──► │ Stage 1 verifier ─► Stage 2 compiler ─► Stage 3 ChatterBox │ ──► PASSED
+ (JSON)          │  safety rules       deterministic       PLR trackers       │
+                 └──────────────────────────────┬────────────────────────────┘
+                                                │ first failure
+                                                ▼
+                               diagnostic in lab terms (step, cause, numbers, fixes)
+                                                │
+                                                ▼
+                    local model (Ollama) proposes IR edits ──► harness checks ──► next round
 ```
 
-**Key Design Principle:** No script touches hardware until it has:
-1. Passed declarative safety verification (Stage 1)
-2. Been compiled to executable code (Stage 2)
-3. Successfully run through simulation (Stage 3)
+| Stage | Module | What it does |
+|---|---|---|
+| IR | `protocols/*.json` | The plan a scientist reviews: steps plus the reagent volumes loaded before the run |
+| 1. Verifier | `pipeline/stage1_verifier.py` | Checks the IR against safety rules (below) with its own plate and tip model |
+| 2. Compiler | `pipeline/stage2_compiler.py` | Deterministic IR → PyLabRobot code; one statement per step with a `# step N` comment |
+| Deck | `pipeline/deck.py`, `config/plr_deck.json` | Fixed STARlet layout; maps each IR labware ID to a PLR resource |
+| 3. Simulator | `pipeline/stage3_simulator.py` | Runs the code on PLR's `LiquidHandlerChatterboxBackend` with tip and volume tracking, maps any exception back to its IR step |
+| Diagnostics | `pipeline/diagnostics.py` | Turns PLR exceptions into lab-concept explanations with suggested IR edits |
+| Self-healing | `pipeline/self_heal.py` | Sends diagnostics to a local model, checks its edits, and re-runs Stages 1–3 |
+| 4. Executor | `pipeline/stage4_executor.py` | Hardware execution (**stub**) |
+
+### Design choices
+
+- **The model never writes Python.** The IR → PyLabRobot translation is fixed code, so the same IR always
+  compiles to the same program. The model only edits the IR, which keeps the human-readable plan the source
+  of truth.
+- **The deck is config, not model output.** Labware and positions come from `config/plr_deck.json`.
+- **Runs locally.** The repair model is a local Ollama model (default `qwen2.5-coder:7b`); no API key needed.
+- **Repairs go to a person.** A repaired protocol is saved as `*_healed.json` with a diff for review. It never
+  replaces the original automatically.
+
+### What each layer catches
+
+| Layer | Catches | Examples |
+|---|---|---|
+| Stage 1 verifier | Rule violations in the plan | Dead volume, well overflow, tip reuse, missing tips, cross-contamination |
+| Stage 3 simulator | Physical problems the rules don't model | 8 channels into a 17 mm tube; a source tube running dry |
+| Harness checks | Model edits that would change the experiment or break the IR | See below |
 
 ---
 
-## Repository Structure (Reorganized)
+## Stage 1 safety rules
+
+Volume limits come from `config/labware.json` (Corning 3595 plate: 30 µL dead volume, 330 µL usable maximum).
+
+| Error code | Cause | Fix |
+|---|---|---|
+| `DRY_ASPIRATE` | An aspirate would leave a plate well below 30 µL | Aspirate less, or start the well with more liquid |
+| `VOLUMETRIC_OVERFLOW` | A dispense would take a plate well above 330 µL | Dispense less, or use another well |
+| `CONTAMINATED_TIP` | A channel aspirates from a different source without `tips_off` | Same source may be reused; otherwise `tips_off` + `tips_on` |
+| `TIP_DEPLETED` | Tips picked from a rack column that was already used (tracked per rack) | Use an unused column or another rack |
+| `MISSING_TIP` | Aspirate or dispense on a channel with no tip mounted | `tips_on` first |
+| `VALIDATION_ERROR` | A required field is missing (column for `tips_on` or plate steps) | Add the field |
+
+The verifier models plate wells and tips only. It does not model source containers (tubes, troughs), container
+geometry, or tip capacity. Those are caught in Stage 3.
+
+## Stage 3 diagnostics
+
+| Code | PLR error | Meaning in the lab |
+|---|---|---|
+| `CHANNEL_SPACING` | `Resource is too small to space channels` | More channels than fit in the container at once (channels need 9 mm spacing) |
+| `INSUFFICIENT_LIQUID` | `TooLittleLiquidError` | The source runs dry; reports how much the plan needs vs how much is loaded |
+| `TIP_OVERFLOW` | `TooLittleVolumeError` on aspirate | More liquid than the mounted tips can hold |
+| `CONTAINER_OVERFLOW` | `TooLittleVolumeError` on dispense | More liquid than the destination can hold |
+| `TIP_ALREADY_MOUNTED` / `NO_TIP_MOUNTED` / `TIP_SPOT_EMPTY` | `HasTipError` / `NoTipError` | Tip pickup or use out of order, or tips already used |
+| `CROSS_CONTAMINATION` | `CrossContaminationError` | A tip would touch a different liquid |
+| `UNRECOGNIZED` | anything else | The raw error is passed through |
+
+## Self-healing checks
+
+The model can reply with two edit types: `replace_step` (replace the failing step with one or more steps) and
+`set_initial_volume` (change how much reagent is loaded). Each edit must pass all three checks before it is applied:
+
+| Check | Rejects |
+|---|---|
+| Step scope | Edits to any step other than the one that failed this round |
+| Compiles | New steps the Stage 2 compiler can't translate (missing volume, unknown labware, ...) |
+| Intent guard | Any change to the total volume each channel aspirates or dispenses at each location |
+
+A rejected edit's reason is sent back to the model for the next round. The loop stops at a clean pass
+(`HEALED`) or after `--max-rounds` (`GAVE_UP`). Giving up is safe: nothing that failed a check gets through.
+
+---
+
+## Setup
+
+```bash
+pip install -r requirements.txt
+```
+
+For self-healing, install [Ollama](https://ollama.com) and pull the default model:
+
+```bash
+ollama pull qwen2.5-coder:7b
+```
+
+## Usage
+
+Run Stages 1–3 once and print the diagnostic on failure:
+
+```bash
+python cli.py --protocol protocols/serial_dilution_v1.json
+```
+
+Repair a failing protocol with the local model:
+
+```bash
+python cli.py --protocol protocols/serial_dilution_v1.json --heal
+```
+
+Options: `--model` (any Ollama model, default `qwen2.5-coder:7b`), `--max-rounds` (default 5),
+`--feedback raw` (send the model only the raw PLR exception instead of the lab-concept diagnostic, for comparison),
+`--output` (default `build/`, git-ignored).
+
+Each run writes to `build/<protocol>/`: every round's IR (`round_N.json`) and compiled code (`round_N_plr.py`),
+`heal_log.json`, and on success `<protocol>_healed.json` plus its compiled PyLabRobot code, `<protocol>_healed_plr.py`.
+
+## Tests
+
+```bash
+python -m pytest precheck/ tests/ -q
+```
+
+- `precheck/test_verifier.py` (11 tests): the Stage 1 rules (volume boundaries, contamination tracking,
+  per-rack tip depletion, and the v0 reference protocol).
+- `tests/test_reproducible_v1.py` (4 tests): keeps `protocols/serial_dilution_v1.json` as a fixed, known-bad
+  reference. It must pass Stage 1, fail Stage 3 at step 2 with `CHANNEL_SPACING`, and pass after the reference
+  repair (split step 2, load 900 µL of stock), without the original file or input being modified.
+
+The live model loop has no unit tests; the notebook runs it end to end.
+
+**Reproducibility rule:** `serial_dilution_v1.json` is the reference input for repair runs and stays in its
+original, failing form. Repairs are written to `build/<protocol>/<protocol>_healed.json`, or to `docs/runs/`
+for documented runs, and never over the original.
+
+---
+
+## Repository layout
 
 ```text
 .
-├── cli.py                             # Entry point: orchestrates 4-stage pipeline
-├── README.md                          # This file
-│
-├── config/                            # Hardware specifications
-│   ├── labware.json                   # Plate, tip, container specs
-│   ├── hardware.json                  # Deck layout, connection parameters
-│   └── protocol_defaults.json         # Initial state and experiment parameters
-│
-├── pipeline/                          # The 4-stage execution pipeline
-│   ├── stage1_verifier.py             # Declarative JSON → Safety gate
-│   ├── stage2_compiler.py             # JSON → PLR Python code (stub)
-│   ├── stage3_simulator.py            # PLR code → ChatterBox dry run (stub)
-│   └── stage4_executor.py             # Hardware execution (stub)
-│
-├── protocols/                         # Protocol specifications (human-readable JSON/YAML)
-│   ├── serial_dilution_v1.json        # Full 68-step, 12-column protocol (CURRENT)
-│   ├── serial_dilution_v0.yaml        # Previous 12-step version
-│   └── serial_dilution_simple.yaml    # Demo/test version (4 steps)
-│
-├── precheck/                          # Legacy verifier & test suite
-│   ├── test_verifier.py               # Comprehensive tests (11 tests, all passing)
-│   └── *.json, *.yaml                 # Config files (duplicates in config/)
-│
-├── tests/                             # Test suite (mirrors precheck/)
-│   └── fixtures/                      # Test data
-│
-└── archive/                           # Legacy & reference code (NOT in active pipeline)
-    ├── files/                         # Old reference implementations
-    ├── viz_backend/                   # Visualization server (separate)
-    ├── simulator_old.py               # Broken PLR simulator (ChatterBox state bug)
-    ├── json_parser_old.py             # Legacy JSON parser
-    ├── main.py                        # Old CLI
-    └── start_visualizer.py            # Old visualization launcher
-
----
-
-## Error Codes
-
-| Error Code | Cause | Solution |
-|-----------|-------|----------|
-| `DRY_ASPIRATE` | Aspirate would leave <30µL dead volume (inaccessible residual) | Reduce aspirate volume or use well with more initial liquid |
-| `VOLUMETRIC_OVERFLOW` | Dispense would exceed 330µL maximum (usable capacity) | Reduce dispense volume or use new well |
-| `CONTAMINATED_TIP` | Attempted aspirate from different source well without `tips_off` | Either reuse tips on same source well (serial dilution), or execute `tips_off` + `tips_on` to switch sources |
-| `TIP_DEPLETED` | Requested tip position in 96-tip rack already used (no tip available) | Use different column in tip rack |
-| `MISSING_TIP` | Channel attempted aspirate/dispense without mounted tip | Execute `tips_on` before aspirate/dispense operations |
-
----
-
-## Quick Start
-
-### Run the Full Pipeline
-
-```bash
-# Verify + compile + simulate
-python cli.py --protocol protocols/serial_dilution_v1.json --output /tmp/protocol_run
+├── cli.py                        # Entry point: stages 1-3, --heal for the repair loop
+├── requirements.txt
+├── pipeline/
+│   ├── stage1_verifier.py        # Safety rules on the IR
+│   ├── stage2_compiler.py        # IR -> PyLabRobot code (deterministic)
+│   ├── deck.py                   # Builds the PLR deck from config/plr_deck.json
+│   ├── stage3_simulator.py       # ChatterBox dry run + error interceptor
+│   ├── diagnostics.py            # PLR exception -> lab-concept diagnostic
+│   ├── self_heal.py              # Repair loop, Ollama backend, edit checks, ir_diff
+│   └── stage4_executor.py        # Hardware execution (stub)
+├── config/
+│   ├── plr_deck.json             # PLR deck layout used by stages 2-4
+│   ├── labware.json              # Labware specs used by the verifier (volume limits)
+│   ├── protocol_defaults.json    # Initial hardware state and experiment parameters
+│   └── hardware.json             # Earlier deck description (not used by the pipeline)
+├── protocols/
+│   ├── serial_dilution_v1.json   # Full 68-step serial dilution; fixed known-bad reference (don't overwrite)
+│   ├── serial_dilution_v0.yaml   # Earlier 12-step version (used by the verifier tests)
+│   └── serial_dilution_simple.yaml
+├── notebooks/
+│   └── pipeline_walkthrough.ipynb
+├── tests/
+│   └── test_reproducible_v1.py   # Keeps serial_dilution_v1.json fixed as the known-bad reference
+├── docs/
+│   ├── self_healing_run_v1.md    # Report on the first successful repair run
+│   └── runs/                     # Logs and healed IRs from documented runs
+├── precheck/                     # Verifier tests (+ older copies of the verifier and configs)
+└── archive/                      # Earlier code kept for reference; not used by the pipeline
 ```
 
-Expected output:
-- ✓ Stage 1: Protocol passes safety gate
-- ✓ Stage 2: Python code compiled to `/tmp/protocol_run/compiled_protocol.py`
-- ⚠ Stage 3: Simulator (ChatterBox integration pending)
-- ⊘ Stage 4: Hardware execution skipped (use `--execute` to run)
+## Target hardware
 
-### Run Tests
-
-```bash
-# All verifier tests (11 tests, all passing)
-pytest precheck/test_verifier.py -v
-
-# Quick test
-pytest precheck/test_verifier.py -q
-```
-
-All 11 tests cover:
-- Volume boundary conditions (dead volume min/max)
-- Smart contamination prevention (same-source reuse allowed, different-source blocked)
-- Tip tracking and depletion per rack (supports multiple racks)
-- Reference serial dilution protocol validation
+- **Liquid handler:** Hamilton STARlet, 8-channel head
+- **Software:** PyLabRobot 0.2.2 (`LiquidHandlerChatterboxBackend` for simulation)
+- **Plate:** Corning 3595, 96-well flat bottom (PLR `cor_96_wellplate_360uL_Fb`)
+- **Tips:** Hamilton 200 µL filtered tips in the spec; simulated with PLR's closest rack,
+  `hamilton_96_tiprack_300uL_filter`
 
 ---
 
-## Future Work (Phase 2)
+## Status and known gaps
 
-- **Concentration Linearity Validation** — verify dilution factor math across transfers
-- **Tip Property Tracking** — distinguish filter vs. standard vs. LPB (low protein binding) tips
-- **Multi-Channel Alignment** — ensure all channels pick from same row
-- **Mixing Validation** — check mix volume feasibility
-- **Reservoir Capacity** — track diluent source depletion
-- **Error Recovery** — state rollback and idempotency
+**Working:** Stages 1–3, lab-concept diagnostics, and the self-healing loop with a local 7B model. One documented
+successful repair of `serial_dilution_v1` in 3 rounds ([report](docs/self_healing_run_v1.md)).
+
+**Not yet:**
+- Natural language → IR generation. Protocols are written by hand.
+- Stage 4 hardware execution.
+- Repair reliability numbers. One successful run is shown; repeated runs and a raw vs translated feedback
+  comparison (`--feedback raw`) are next.
+- Unit tests for the live model loop (Stages 1–3 and the edit checks are covered on v1 by `tests/`).
+- Labware changes in repairs. The intent guard rejects them (e.g. moving a reagent to a trough), even when they
+  would be a valid fix.
+- A `mix` action in the IR.
+- `serial_dilution_v0.yaml` and `serial_dilution_simple.yaml` have no `initial_volumes_ul`, so their sources start
+  empty in Stage 3.
+- `serial_dilution_v1.json` metadata says `final_volume_per_well_ul: 100`, but its steps leave every well at
+  50 µL. The pipeline only reads the steps; the metadata or the volumes should be corrected.
+- `precheck/` still holds older copies of the verifier and configs. The tests use `pipeline/stage1_verifier.py`
+  and `config/`.
