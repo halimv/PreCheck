@@ -5,7 +5,8 @@ LLNL Capstone Protocol Pipeline CLI.
   Stage 1: Verifier   (protocol IR -> safety gate)
   Stage 2: Compiler   (IR -> PyLabRobot module, deterministic)
   Stage 3: Simulator  (module -> ChatterBox dry run + lab-concept diagnostic)
-  Stage 4: Executor   (hardware, stub)
+  Stage 4: Visualizer (replay in PyLabRobot's browser visualizer, --visualize)
+  Stage 5: Executor   (hardware, stub, --execute)
 
 With --heal, a failing protocol goes through the self-healing loop: a local Ollama model
 edits the IR until stages 1-3 pass, and the repaired IR is written out for review.
@@ -13,9 +14,11 @@ edits the IR until stages 1-3 pass, and the repaired IR is written out for revie
 Usage:
   python cli.py --protocol protocols/serial_dilution_v1.json
   python cli.py --protocol protocols/serial_dilution_v1.json --heal
+  python cli.py --protocol protocols/serial_dilution_v1.json --heal --visualize
 """
 
 import argparse
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -25,9 +28,20 @@ import yaml
 from pipeline.deck import load_deck_config
 from pipeline.self_heal import OllamaBackend, SelfHealer, ir_diff
 from pipeline.stage2_compiler import compile_protocol
-from pipeline.stage4_executor import HardwareExecutor
+from pipeline.stage4_visualizer import visualize_protocol
+from pipeline.stage5_executor import HardwareExecutor
 
 CONFIG_DIR = Path(__file__).parent / "config"
+
+
+async def show_in_visualizer(protocol, deck_config, name):
+    session = await visualize_protocol(protocol, deck_config, name=name)
+    print(f"Replay finished. Visualizer still open at {session.url}; press Ctrl+C to close it.")
+    try:
+        while True:
+            await asyncio.sleep(1)
+    finally:
+        await session.stop()
 
 
 def main():
@@ -41,7 +55,11 @@ def main():
         "--feedback", choices=["translated", "raw"], default="translated",
         help="What the model sees on a simulation failure: lab-concept diagnostic or raw exception",
     )
-    parser.add_argument("--execute", action="store_true", help="Run on hardware after a clean pass (stub)")
+    parser.add_argument(
+        "--visualize", action="store_true",
+        help="After a clean pass, replay the passing protocol in PyLabRobot's browser visualizer (stage 4)",
+    )
+    parser.add_argument("--execute", action="store_true", help="Run on hardware after a clean pass (stage 5, stub)")
     args = parser.parse_args()
 
     with open(args.protocol) as f:
@@ -60,6 +78,7 @@ def main():
     )
 
     print(f"\nProtocol: {args.protocol} ({len(protocol['steps'])} steps)")
+    passing = protocol  # the protocol that passed stages 1-3; replaced by the repaired IR after --heal
     if not args.heal:
         gate = healer.evaluate(protocol, 0)
         print(f"[{gate.stage}] {'PASSED' if gate.passed else 'FAILED'}: {gate.summary}")
@@ -83,9 +102,17 @@ def main():
             print(ir_diff(protocol, result.protocol))
         if result.status == "GAVE_UP":
             sys.exit(1)
+        passing = result.protocol
+
+    if args.visualize:
+        print("\n[Stage 4] Opening PyLabRobot's visualizer and replaying the passing protocol...")
+        try:
+            asyncio.run(show_in_visualizer(passing, deck_config, name=f"{stem} ({len(passing['steps'])} steps)"))
+        except KeyboardInterrupt:
+            print("Visualizer closed.")
 
     if args.execute:
-        print("\n[Stage 4] " + HardwareExecutor(str(CONFIG_DIR / "hardware.json")).execute("")["message"])
+        print("\n[Stage 5] " + HardwareExecutor(str(CONFIG_DIR / "hardware.json")).execute("")["message"])
 
 
 if __name__ == "__main__":

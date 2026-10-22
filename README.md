@@ -16,8 +16,8 @@ protocol replayed in PyLabRobot's browser visualizer.
 
 ```
                  ┌─────────────────────── one round ───────────────────────┐
- protocol IR ──► │ Stage 1 verifier ─► Stage 2 compiler ─► Stage 3 ChatterBox │ ──► PASSED
- (JSON)          │  safety rules       deterministic       PLR trackers       │
+ protocol IR ──► │ Stage 1 verifier ─► Stage 2 compiler ─► Stage 3 ChatterBox │ ──► PASSED ──► Stage 4 visualizer ──► Stage 5 hardware
+ (JSON)          │  safety rules       deterministic       PLR trackers       │                (watch the replay)       (stub)
                  └──────────────────────────────┬────────────────────────────┘
                                                 │ first failure
                                                 ▼
@@ -36,7 +36,8 @@ protocol replayed in PyLabRobot's browser visualizer.
 | 3. Simulator | `pipeline/stage3_simulator.py` | Runs the code on PLR's `LiquidHandlerChatterboxBackend` with tip and volume tracking, maps any exception back to its IR step |
 | Diagnostics | `pipeline/diagnostics.py` | Turns PLR exceptions into lab-concept explanations with suggested IR edits |
 | Self-healing | `pipeline/self_heal.py` | Sends diagnostics to a local model, checks its edits, and re-runs Stages 1–3 |
-| 4. Executor | `pipeline/stage4_executor.py` | Hardware execution (**stub**) |
+| 4. Visualizer | `pipeline/stage4_visualizer.py` | Replays the passing protocol in PyLabRobot's browser visualizer, step by step |
+| 5. Executor | `pipeline/stage5_executor.py` | Hardware execution (**stub**) |
 
 ### Design choices
 
@@ -128,9 +129,16 @@ Repair a failing protocol with the local model:
 python cli.py --protocol protocols/serial_dilution_v1.json --heal
 ```
 
+Watch the passing (or repaired) protocol in PyLabRobot's visualizer (Stage 4). This opens a browser tab at
+`http://127.0.0.1:1337`, replays every step, and keeps the page open until you press Ctrl+C:
+
+```bash
+python cli.py --protocol protocols/serial_dilution_v1.json --heal --visualize
+```
+
 Options: `--model` (any Ollama model, default `qwen2.5-coder:7b`), `--max-rounds` (default 5),
 `--feedback raw` (send the model only the raw PLR exception instead of the lab-concept diagnostic, for comparison),
-`--output` (default `build/`, git-ignored).
+`--output` (default `build/`, git-ignored), `--execute` (Stage 5, a stub for now).
 
 Each run writes to `build/<protocol>/`: every round's IR (`round_N.json`) and compiled code (`round_N_plr.py`),
 `heal_log.json`, and on success `<protocol>_healed.json` plus its compiled PyLabRobot code, `<protocol>_healed_plr.py`.
@@ -168,9 +176,10 @@ for documented runs, and never over the original.
 │   ├── stage3_simulator.py       # ChatterBox dry run + error interceptor
 │   ├── diagnostics.py            # PLR exception -> lab-concept diagnostic
 │   ├── self_heal.py              # Repair loop, Ollama backend, edit checks, ir_diff
-│   └── stage4_executor.py        # Hardware execution (stub)
+│   ├── stage4_visualizer.py      # Replay in PyLabRobot's browser visualizer
+│   └── stage5_executor.py        # Hardware execution (stub)
 ├── config/
-│   ├── plr_deck.json             # PLR deck layout used by stages 2-4
+│   ├── plr_deck.json             # PLR deck layout used by stages 2-5
 │   ├── labware.json              # Labware specs used by the verifier (volume limits)
 │   ├── protocol_defaults.json    # Initial hardware state and experiment parameters
 │   └── hardware.json             # Earlier deck description (not used by the pipeline)
@@ -206,7 +215,7 @@ successful repair of `serial_dilution_v1` in 3 rounds ([report](docs/self_healin
 
 **Not yet:**
 - Natural language → IR generation. Protocols are written by hand.
-- Stage 4 hardware execution.
+- Stage 5 hardware execution.
 - Repair reliability numbers. One successful run is shown; repeated runs and a raw vs translated feedback
   comparison (`--feedback raw`) are next.
 - Unit tests for the live model loop (Stages 1–3 and the edit checks are covered on v1 by `tests/`).

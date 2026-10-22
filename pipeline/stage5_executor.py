@@ -1,7 +1,7 @@
-"""Stage 4: Hardware Executor (Physical Robot Control).
+"""Stage 5: Hardware Executor (Physical Robot Control).
 
 Sends verified and simulated protocol to physical Hamilton STARlet hardware.
-Only invoked after stages 1-3 pass completely.
+Only invoked after stages 1-3 pass completely (stage 4, the visualizer, is optional).
 """
 
 import json
