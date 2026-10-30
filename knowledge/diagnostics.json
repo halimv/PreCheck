@@ -1,0 +1,331 @@
+{
+  "about": [
+    "Diagnostics knowledge base: what each Stage 3 simulator error means in the lab, how to fix it, and what past runs learned about it.",
+    "pipeline/diagnostics.py reads the entries to explain a failure to the scientist and the repair model; no error wording lives in code.",
+    "Entries are checked top to bottom and the first one whose 'when' matches is used, so specific entries go above general ones. The last entry has no 'when' and catches everything else.",
+    "People edit: id, code, title, when, facts, explanation, fixes, notes. The pipeline writes: observed (updated after every self-healing run from the CLI or the demo; never sent to the model)."
+  ],
+  "fields": {
+    "id": "Unique name for the entry; several entries can share a code.",
+    "code": "Error code shown in the UI, the run logs and the benchmark.",
+    "title": "One line for people.",
+    "when": "Conditions that must all hold. A list of condition objects means 'any of these'. Conditions: error (PyLabRobot exception class name, or a list), message_contains, device_code (code on a simulated device error, pipeline/deck.py), action (failing step's action, or a list), action_is_not, reagent_loaded (true if the labware is in initial_volumes_ul).",
+    "facts": "Numbers worked out from the deck and the protocol (see 'facts' below).",
+    "explanation": "What went wrong, in lab terms. Sent to the model. A list of sentences is joined with spaces.",
+    "fixes": "IR changes that would fix it. Sent to the model, so only list fixes the harness will accept. Each fix is a string or a list of sentences.",
+    "notes": "For people only, never sent to the model: why the wording is what it is.",
+    "observed": "Written by the pipeline. seen: rounds that failed with this entry. repair_attempts: of those, rounds where the model's edits were applied. resolved: attempts after which this failure was gone (the next round passed or failed somewhere else). resolved_by: which edit ops did it. rejected: why edits were rejected. examples: the most recent failures."
+  },
+  "placeholders": {
+    "always": "n (step number), action, labware, column, channels, n_channels, last_channel, volume_ul, speed_rpm, temperature_c, error (exception message), raw (exception class and message)",
+    "format": "Python format syntax, e.g. {width:g}. Write {{ and }} for a literal brace."
+  },
+  "facts": {
+    "container_fit": "width (container width, mm), pitch (minimum channel spacing, mm), fit (channels that fit side by side)",
+    "liquid_levels": "requested (uL per channel asked for), available (uL left in the container)",
+    "reagent_plan": "start (uL loaded), needed (uL aspirated over the whole plan), load (needed + 10%, rounded up to 50 uL)",
+    "free_tip_columns": "free (full, unused columns in the tip rack)"
+  },
+  "entries": [
+    {
+      "id": "channel_spacing",
+      "code": "CHANNEL_SPACING",
+      "title": "Too many channels for the container's width",
+      "when": [
+        {
+          "error": "ChannelsDoNotFitError"
+        },
+        {
+          "error": "ValueError",
+          "message_contains": "space channels"
+        }
+      ],
+      "facts": [
+        "container_fit"
+      ],
+      "explanation": [
+        "Step {n} sends {n_channels} channels into '{labware}' at the same time.",
+        "Hamilton channels must stay at least {pitch:g} mm apart, and '{labware}' is only {width:g} mm wide, so about {fit} channel(s) fit in it at once.",
+        "The robot physically cannot lower all {n_channels} channels into it together."
+      ],
+      "fixes": [
+        "Replace step {n} with {n_channels} steps of the same action, each using a single channel (channels [0], then [1], ... [{last_channel}]) and the same labware and volume_ul.",
+        "Or move this reagent to a container wide enough for 8 channels (a trough), if one is on the deck."
+      ]
+    },
+    {
+      "id": "insufficient_liquid.loaded_reagent",
+      "code": "INSUFFICIENT_LIQUID",
+      "title": "A reagent the scientist loads runs out",
+      "when": {
+        "error": "TooLittleLiquidError",
+        "reagent_loaded": true
+      },
+      "facts": [
+        "liquid_levels",
+        "reagent_plan"
+      ],
+      "explanation": [
+        "Step {n} tries to aspirate {requested} uL per channel from '{labware}', but it only holds {available} uL at this point.",
+        "The plan loads {start:g} uL into '{labware}' but aspirates {needed:g} uL from it in total, so it runs dry before the protocol finishes."
+      ],
+      "fixes": [
+        [
+          "Have the scientist load more reagent (needed {needed:g} uL plus a 10% margin): {{\"op\": \"set_initial_volume\", \"labware\": \"{labware}\", \"volume_ul\": {load}}}.",
+          "This keeps every step unchanged.",
+          "Do not lower volume_ul: that changes the experiment and is rejected."
+        ]
+      ],
+      "notes": [
+        "Lowering volume_ul would also stop the error, but it changes how much liquid the experiment moves, so the intent guard rejects it.",
+        "Until 2026-10-29 this entry also suggested \"lower volume_ul\"; qwen2.5-coder:7b followed that suggestion every round and was rejected every round (plate_wash_incubate_demo gave up after 5 rounds).",
+        "Only offer the fix the harness will accept."
+      ],
+      "observed": {
+        "seen": 1,
+        "repair_attempts": 1,
+        "resolved": 1,
+        "resolved_by": {
+          "set_initial_volume": 1
+        },
+        "rejected": {
+          "a new step does not compile": 1
+        },
+        "protocols": [
+          "plate_wash_incubate_demo.json"
+        ],
+        "models": [
+          "qwen2.5-coder:7b"
+        ],
+        "first_seen": "2026-10-30",
+        "last_seen": "2026-10-30",
+        "examples": [
+          {
+            "date": "2026-10-30",
+            "protocol": "plate_wash_incubate_demo.json",
+            "model": "qwen2.5-coder:7b",
+            "step": 28,
+            "raw_error": "TooLittleLiquidError: Not enough liquid in container: 200.0uL > 0.0uL.",
+            "outcome": "resolved by set_initial_volume"
+          }
+        ]
+      }
+    },
+    {
+      "id": "insufficient_liquid.filled_by_earlier_steps",
+      "code": "INSUFFICIENT_LIQUID",
+      "title": "A container filled by earlier steps runs out",
+      "when": {
+        "error": "TooLittleLiquidError",
+        "reagent_loaded": false
+      },
+      "facts": [
+        "liquid_levels"
+      ],
+      "explanation": "Step {n} tries to aspirate {requested} uL per channel from '{labware}', but it only holds {available} uL at this point.",
+      "fixes": [
+        [
+          "'{labware}' is not loaded by the scientist, so more liquid must reach it from an earlier step.",
+          "Moving less liquid changes the experiment and needs the scientist's approval."
+        ]
+      ],
+      "notes": "Same reason as above for not suggesting a lower volume_ul. set_initial_volume is not offered because the scientist does not load this labware."
+    },
+    {
+      "id": "tip_overflow",
+      "code": "TIP_OVERFLOW",
+      "title": "Aspirating more than the tip holds",
+      "when": {
+        "error": "TooLittleVolumeError",
+        "action": "aspirate"
+      },
+      "explanation": [
+        "Step {n} aspirates {volume_ul} uL per channel, more than the mounted tips have room for (tips may already hold liquid from earlier aspirates).",
+        "{error}"
+      ],
+      "fixes": [
+        "Lower volume_ul in step {n}, or dispense what the tips already hold before aspirating again."
+      ],
+      "notes": "\"Lower volume_ul\" is accepted only when a later step makes up the difference, since the intent guard compares total volume moved per location."
+    },
+    {
+      "id": "container_overflow",
+      "code": "CONTAINER_OVERFLOW",
+      "title": "Dispensing more than the well holds",
+      "when": {
+        "error": "TooLittleVolumeError"
+      },
+      "explanation": [
+        "Step {n} dispenses more into '{labware}' than it can hold.",
+        "{error}"
+      ],
+      "fixes": [
+        "Lower volume_ul in step {n}, or dispense into an emptier well or column."
+      ]
+    },
+    {
+      "id": "tip_already_mounted.on_pickup",
+      "code": "TIP_ALREADY_MOUNTED",
+      "title": "Picking up tips while channels already carry tips",
+      "when": {
+        "error": "HasTipError",
+        "action": "tips_on"
+      },
+      "explanation": [
+        "Step {n} ({action}) hits channels that already carry tips.",
+        "{error}"
+      ],
+      "fixes": [
+        "Add a tips_off step before step {n} so the channels are empty before picking up new tips."
+      ]
+    },
+    {
+      "id": "tip_already_mounted.on_drop",
+      "code": "TIP_ALREADY_MOUNTED",
+      "title": "Returning tips to a spot that is already full",
+      "when": {
+        "error": "HasTipError"
+      },
+      "explanation": [
+        "Step {n} ({action}) hits a tip spot that already holds a tip.",
+        "{error}"
+      ],
+      "fixes": [
+        "Add a tips_off step before step {n} so the channels are empty before picking up new tips."
+      ]
+    },
+    {
+      "id": "tip_spot_empty",
+      "code": "TIP_SPOT_EMPTY",
+      "title": "Picking up tips from a column that was already used",
+      "when": {
+        "error": "NoTipError",
+        "action": "tips_on"
+      },
+      "facts": [
+        "free_tip_columns"
+      ],
+      "explanation": "Step {n} picks up tips from '{labware}' column {column}, but those tips were already used.",
+      "fixes": [
+        [
+          "Change the column in step {n} to an unused one.",
+          "Unused full columns in '{labware}': {free}."
+        ]
+      ]
+    },
+    {
+      "id": "no_tip_mounted",
+      "code": "NO_TIP_MOUNTED",
+      "title": "Pipetting without tips",
+      "when": {
+        "error": "NoTipError"
+      },
+      "explanation": "Step {n} ({action}) runs on channels {channels} without tips mounted.",
+      "fixes": [
+        "Add a tips_on step for channels {channels} before step {n}."
+      ]
+    },
+    {
+      "id": "cross_contamination",
+      "code": "CROSS_CONTAMINATION",
+      "title": "Reusing a tip across different liquids",
+      "when": {
+        "error": "CrossContaminationError"
+      },
+      "explanation": [
+        "Step {n} would reuse a tip that touched a different liquid.",
+        "{error}"
+      ],
+      "fixes": [
+        "Add tips_off and tips_on (fresh tips) before step {n}."
+      ]
+    },
+    {
+      "id": "not_on_heater_shaker",
+      "code": "NOT_ON_HEATER_SHAKER",
+      "title": "Incubating or shaking a plate that is not on a heater-shaker",
+      "when": {
+        "error": "DeviceError",
+        "device_code": "NOT_ON_HEATER_SHAKER"
+      },
+      "explanation": [
+        "Step {n} ({action}) needs its plate on a heater-shaker.",
+        "{error}"
+      ],
+      "fixes": [
+        "Have the scientist place this plate on the heater-shaker in the deck config (this is a deck change, so it needs their approval)."
+      ]
+    },
+    {
+      "id": "shake_speed_out_of_range",
+      "code": "SHAKE_SPEED_OUT_OF_RANGE",
+      "title": "Shake speed outside what the heater-shaker can do",
+      "when": {
+        "error": "DeviceError",
+        "device_code": "SHAKE_SPEED_OUT_OF_RANGE"
+      },
+      "explanation": [
+        "Step {n} asks the heater-shaker for {speed_rpm} rpm.",
+        "{error}"
+      ],
+      "fixes": [
+        [
+          "No repair keeps this step as written: the device cannot reach this speed.",
+          "Changing speed_rpm changes the experiment, so the scientist must approve a different speed or device."
+        ]
+      ],
+      "notes": [
+        "Limits come from PyLabRobot's Hamilton heater-shaker (20-2000 rpm).",
+        "Clamping the speed would be rejected by the intent guard, so no automatic fix is offered."
+      ]
+    },
+    {
+      "id": "temperature_out_of_range",
+      "code": "TEMPERATURE_OUT_OF_RANGE",
+      "title": "Temperature outside what the heater-shaker can do",
+      "when": {
+        "error": "DeviceError",
+        "device_code": "TEMPERATURE_OUT_OF_RANGE"
+      },
+      "explanation": [
+        "Step {n} asks the heater-shaker for {temperature_c} C.",
+        "{error}"
+      ],
+      "fixes": [
+        [
+          "No repair keeps this step as written: the device cannot reach this temperature.",
+          "Changing temperature_c changes the experiment, so the scientist must approve a different temperature or device."
+        ]
+      ],
+      "notes": "Limits come from PyLabRobot's Hamilton heater-shaker (above 0 C, up to 105 C)."
+    },
+    {
+      "id": "heater_cannot_cool",
+      "code": "HEATER_CANNOT_COOL",
+      "title": "Setting a lower temperature than the plate is already at",
+      "when": {
+        "error": "ValueError",
+        "message_contains": "active cooling"
+      },
+      "explanation": [
+        "Step {n} sets the heater-shaker to {temperature_c} C, below the temperature an earlier step heated it to.",
+        "The heater-shaker can only heat; it cannot actively cool."
+      ],
+      "fixes": [
+        "Replace step {n} with two steps: a room-temperature incubate on the same plate (leave temperature_c out; the heater switches off and the plate cools passively, allow 600 s), then step {n} unchanged."
+      ],
+      "notes": "The intent guard allows extra room-temperature hold time, so this fix is accepted without the scientist."
+    },
+    {
+      "id": "unrecognized",
+      "code": "UNRECOGNIZED",
+      "title": "Anything not covered above",
+      "explanation": [
+        "Step {n} failed in simulation with {raw}.",
+        "No lab-concept translation exists for this error yet."
+      ],
+      "fixes": [],
+      "notes": "When a run ends here, add an entry above for the new error so the model gets a lab-concept explanation next time."
+    }
+  ]
+}

@@ -39,6 +39,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -332,6 +333,50 @@ pre {
 
 .beyond { opacity: 0.55; }
 #detail .timeline { margin-top: 16px; }
+
+/* ---------- library page ---------- */
+
+.tabs { display: flex; gap: 6px; }
+.tabs button { flex: 1; padding: 8px 10px; font-size: 0.9rem; }
+.tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+input[type=search] {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.lib-summary { margin-bottom: 18px; }
+.summary-card.warn { border-color: var(--warn); }
+.summary-card.warn .big { color: var(--warn); }
+.lib-stat-detail { font-size: 0.82rem; margin: 0; overflow-wrap: anywhere; }
+.lib-sub { font-size: 0.88rem; margin-top: -4px; }
+.lib-list { display: flex; flex-direction: column; gap: 12px; }
+.lib-card { animation: none; }
+.lib-card > header > div:first-of-type { min-width: 0; }
+.lib-title { font-size: 0.82rem; }
+.lib-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.lib-pos { font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.lib-h4 { margin: 14px 0 8px; }
+.lib-table { font-size: 0.84rem; }
+.lib-table td, .lib-table th { vertical-align: top; }
+.lib-table .badge { white-space: nowrap; }
+.lib-carriers { font-size: 0.82rem; margin: 10px 0 0; }
+.lib-notes { background: var(--warn-bg); }
+.lib-notes p { margin: 0; }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+code.ph {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: var(--accent);
+}
+.spec-list { margin: 0; padding-left: 18px; }
+.lib-card details .kv { margin-top: 8px; }
+.lib-card dd .kv { margin-top: 2px; }
 
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }

@@ -78,6 +78,35 @@ geometry, or tip capacity. Those are caught in Stage 3.
 
 ## Stage 3 diagnostics
 
+The explanations and suggested fixes are not written in code. They live in
+[`knowledge/diagnostics.json`](knowledge/diagnostics.json), a knowledge base about failures in the same way that
+`config/labware.json` is an inventory of the labware. Each entry has a part people write and a part the pipeline
+writes:
+
+- **Curated:**
+  - `when`: which failures the entry covers (PLR exception, message text, device code, the step's action, and
+    whether the scientist loads the labware).
+  - `explanation` and `fixes`: what the model is told, and which IR edits are suggested.
+  - `notes`: why the wording is what it is. Never sent to the model. For example, "lower `volume_ul`" was removed
+    from `INSUFFICIENT_LIQUID` because the intent guard always rejects it, and qwen kept proposing it.
+- **Observed** (updated after every `cli.py --heal` and demo run):
+  - how often the entry came up;
+  - how often the model's repair made the failure go away, and with which edit ops;
+  - why the model's edits were rejected;
+  - which protocols and models hit it;
+  - the last few raw errors.
+
+  It is never sent to the model, so the model sees the same prompts however much has been recorded. Benchmark
+  runs don't record, so repeated synthetic scenes don't swamp the counts.
+
+Entries are checked top to bottom and the first match wins. Numbers that come from the deck or the whole protocol
+(container width, total volume the plan aspirates, unused tip columns) are small named "facts" in
+`pipeline/diagnostics.py`. The file is checked when it loads, so a typo in a hand edit fails right away instead of
+mid-run.
+
+To cover a new error, add an entry above `UNRECOGNIZED`. That entry's `observed.examples` lists the errors still
+waiting for one.
+
 | Code | PLR error | Meaning in the lab |
 |---|---|---|
 | `CHANNEL_SPACING` | `Resource is too small to space channels` | More channels than fit in the container at once (channels need 9 mm spacing) |
@@ -154,6 +183,22 @@ The **Benchmark results** page (`/benchmark`) shows any run of `python -m benchm
 condition score grid, and every round of any run (click a cell). See
 [docs/serial_dilution_benchmark_spec.md](docs/serial_dilution_benchmark_spec.md) for how runs are scored.
 
+The **Library** page (`/library`) shows the static data the pipeline relies on. It is read-only: edit the files
+and reload.
+
+- **Labware tab:**
+  - every item in `config/labware.json`, with its key specifications and which deck layouts place it;
+  - every `config/plr_deck*.json` layout: labware positions, PyLabRobot resources, machines and carriers, and
+    which protocols use it;
+  - deck labware missing from the inventory, and inventory items no deck uses.
+- **Knowledge base tab:** every entry of `knowledge/diagnostics.json` in matching order, showing:
+  - when it applies, in plain words;
+  - the explanation and fixes sent to the model, with placeholders highlighted;
+  - the notes for people;
+  - what recorded runs observed.
+
+  A filter and an "only entries seen in a recorded run" toggle narrow it down.
+
 ## Usage
 
 Run Stages 1–3 once and print the diagnostic on failure:
@@ -197,6 +242,11 @@ python -m pytest precheck/ tests/ -q
   The demo is an uncorrected zero-shot Claude draft and stays known-bad (Stage 3 fails at step 28: 4000 µL of
   wash buffer loaded, 6400 µL needed). The tests check that, the reference repair, each device failure code,
   and that the intent guard protects holds and empties.
+- `tests/test_partial_edits.py` (4 tests): edits that pass their checks are applied even when another edit in the
+  same reply is rejected, and the rejected part is reported back to the model.
+- `tests/test_diagnostics_kb.py` (16 tests): the diagnostics knowledge base loads, no entry is hidden behind an
+  earlier one, typos in a hand edit (unknown field, condition, exception or fact; duplicate id) are reported when it
+  loads, and self-healing runs are recorded into `observed` (on a copy, never the real file).
 
 The live model loop has no unit tests; the notebook runs it end to end.
 
@@ -217,7 +267,7 @@ for documented runs, and never over the original.
 │   ├── stage2_compiler.py        # IR -> PyLabRobot code (deterministic)
 │   ├── deck.py                   # Builds the PLR deck from config/plr_deck.json
 │   ├── stage3_simulator.py       # ChatterBox dry run + error interceptor
-│   ├── diagnostics.py            # PLR exception -> lab-concept diagnostic
+│   ├── diagnostics.py            # PLR exception -> lab-concept diagnostic (looked up in knowledge/)
 │   ├── self_heal.py              # Repair loop, Ollama backend, edit checks, ir_diff
 │   ├── stage4_visualizer.py      # Replay in PyLabRobot's browser visualizer
 │   └── stage5_executor.py        # Hardware execution (stub)
@@ -227,6 +277,9 @@ for documented runs, and never over the original.
 │   ├── labware.json              # Labware specs used by the verifier (volume limits)
 │   ├── protocol_defaults.json    # Initial hardware state and experiment parameters
 │   └── hardware.json             # Earlier deck description (not used by the pipeline)
+├── knowledge/
+│   └── diagnostics.json          # Diagnostics knowledge base: what each simulator error means, how to fix it,
+│                                 #   and what past self-healing runs learned about it
 ├── protocols/
 │   ├── serial_dilution_v1.json   # Full 68-step serial dilution; fixed known-bad reference (don't overwrite)
 │   ├── plate_wash_incubate_demo.json # Zero-shot Claude draft: coat, incubate, wash; known-bad (don't overwrite)
@@ -234,12 +287,14 @@ for documented runs, and never over the original.
 │   └── serial_dilution_simple.yaml
 ├── demo/
 │   ├── server.py                 # Live self-healing demo (Flask + Server-Sent Events)
-│   └── static/                   # The demo page: index.html, app.js, style.css
+│   └── static/                   # Pages: live run (index/app.js), benchmark, library; shared common.js, style.css
 ├── notebooks/
 │   └── pipeline_walkthrough.ipynb
 ├── tests/
 │   ├── test_reproducible_v1.py   # Keeps serial_dilution_v1.json fixed as the known-bad reference
-│   └── test_device_steps.py      # empty / incubate / shake on the plate-assay demo
+│   ├── test_device_steps.py      # empty / incubate / shake on the plate-assay demo
+│   ├── test_partial_edits.py     # Partial acceptance of a model reply
+│   └── test_diagnostics_kb.py    # The error knowledge base
 ├── docs/
 │   ├── self_healing_run_v1.md    # Report on the first successful repair run
 │   └── runs/                     # Logs and healed IRs from documented runs

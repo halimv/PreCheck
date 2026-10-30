@@ -28,7 +28,8 @@ from flask import Flask, Response, abort, jsonify, request, send_from_directory
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from pipeline.deck import deck_config_for  # noqa: E402
+from pipeline import diagnostics  # noqa: E402
+from pipeline.deck import DEFAULT_DECK, deck_config_for  # noqa: E402
 from pipeline.self_heal import OllamaBackend, SelfHealer, ir_diff  # noqa: E402
 from pipeline.stage2_compiler import compile_protocol  # noqa: E402
 from pipeline.stage4_visualizer import VisualizerSession, replay, start_visualizer  # noqa: E402
@@ -91,6 +92,7 @@ def run_worker(run: Run) -> None:
             feedback_mode=run.feedback,
         )
         result = healer.heal(run.original, max_rounds=run.max_rounds, on_event=run.emit)
+        diagnostics.record_run(result.rounds, run.protocol_file, run.model)
         done: Dict[str, Any] = {
             "status": result.status,
             "repair_rounds": len(result.rounds) - 1,
@@ -275,6 +277,31 @@ def get_benchmark(bench_id: str):
     if not path.is_file():
         abort(404)
     return jsonify(_benchmark_records(path))
+
+
+# --- Library: the static data the pipeline relies on ---
+
+@app.get("/library")
+def library_page():
+    return send_from_directory(app.static_folder, "library.html")
+
+
+@app.get("/api/library")
+def library():
+    """The labware inventory, every deck layout (and which protocols use it), and the diagnostics
+    knowledge base, read fresh so recorded runs show up on reload."""
+    used_by: Dict[str, List[str]] = {}
+    for path in sorted(PROTOCOLS.glob("*")):
+        if path.suffix in (".json", ".yaml", ".yml"):
+            deck = Path(yaml.safe_load(path.read_text()).get("deck_config", DEFAULT_DECK)).name
+            used_by.setdefault(deck, []).append(path.name)
+    decks = [{"file": path.name, **json.loads(path.read_text()), "used_by": used_by.get(path.name, [])}
+             for path in sorted(CONFIG.glob("plr_deck*.json"))]
+    return jsonify({
+        "inventory": json.loads((CONFIG / "labware.json").read_text()),
+        "decks": decks,
+        "knowledge": json.loads(diagnostics.KNOWLEDGE_BASE.read_text()),
+    })
 
 
 def main():

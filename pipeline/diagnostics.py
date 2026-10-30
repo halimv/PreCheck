@@ -4,11 +4,21 @@ The simulator (stage 3) catches the exception, works out which IR step raised it
 captures deck state. This module turns that into a structured diagnostic a scientist
 (or a small model in the self-healing loop) can act on: what went wrong in physical
 terms, the relevant numbers, and the IR changes that would fix it.
+
+The wording and fixes come from knowledge/diagnostics.json, a reviewable knowledge base that
+also keeps what past self-healing runs learned about each error (`record_run`).
 """
 
+import datetime
+import functools
+import json
 import math
+import os
 import re
-from typing import Any, Dict, Optional
+import threading
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from pylabrobot.liquid_handling.errors import ChannelizedError, ChannelsDoNotFitError
 from pylabrobot.resources.errors import (
@@ -23,6 +33,7 @@ from pipeline.deck import DeviceError
 
 ROWS = "ABCDEFGH"
 CHANNEL_PITCH_MM = 9.0  # minimum spacing between Hamilton 1 mL channels
+KNOWLEDGE_BASE = Path(__file__).resolve().parent.parent / "knowledge" / "diagnostics.json"
 
 
 def unwrap(exc: BaseException) -> BaseException:
@@ -66,6 +77,158 @@ def capture_state(lh, res: Dict[str, Any], deck_config: Dict[str, Any], step: Op
     return state
 
 
+# ---------- knowledge base ----------
+# The wording, matching rules and fixes for each error live in knowledge/diagnostics.json, so a
+# scientist can review them without reading code. This module only matches an exception to an
+# entry and fills in the numbers.
+
+EXCEPTIONS = {
+    cls.__name__: cls
+    for cls in (ChannelsDoNotFitError, CrossContaminationError, DeviceError, HasTipError, NoTipError,
+                TooLittleLiquidError, TooLittleVolumeError, ValueError)
+}
+CONDITIONS = {"error", "message_contains", "device_code", "action", "action_is_not", "reagent_loaded"}
+ENTRY_FIELDS = {"id", "code", "title", "when", "facts", "explanation", "fixes", "notes", "observed"}
+
+
+@dataclass
+class Failure:
+    """Everything an entry's conditions and facts can look at."""
+
+    err: BaseException
+    step: Dict[str, Any]
+    protocol: Dict[str, Any]
+    res: Dict[str, Any]
+    state: Dict[str, Any]
+
+    @property
+    def labware(self) -> Optional[str]:
+        return self.step.get("labware")
+
+    def reagent_loaded(self) -> bool:
+        return self.labware is not None and self.labware in self.protocol.get("initial_volumes_ul", {})
+
+    def fields(self) -> Dict[str, Any]:
+        """Placeholders every entry can use."""
+        channels = self.step.get("channels", [0])
+        return {
+            "n": self.step.get("step"),
+            "action": self.step.get("action"),
+            "labware": self.labware,
+            "column": self.step.get("column"),
+            "channels": channels,
+            "n_channels": len(channels),
+            "last_channel": channels[-1],
+            "volume_ul": self.step.get("volume_ul"),
+            "speed_rpm": self.step.get("speed_rpm"),
+            "temperature_c": self.step.get("temperature_c"),
+            "error": str(self.err),
+            "raw": f"{type(self.err).__name__}: {self.err}",
+        }
+
+
+# Facts: numbers an entry needs that come from the deck or the whole protocol. Entries list
+# the facts they use by name; each returns extra placeholders.
+
+def container_fit(f: Failure) -> Dict[str, Any]:
+    width = f.res[f.labware].get_size_y() if f.labware in f.res else 0.0
+    return {"width": width, "pitch": CHANNEL_PITCH_MM, "fit": max(1, math.floor(width / CHANNEL_PITCH_MM))}
+
+
+def liquid_levels(f: Failure) -> Dict[str, Any]:
+    available = f.state["container_volumes_ul"].get(f.labware)
+    requested = re.findall(r"([\d.]+)uL", str(f.err))
+    return {
+        "requested": requested[0] if requested else f.step.get("volume_ul"),
+        "available": available if available is not None else "too little",
+    }
+
+
+def reagent_plan(f: Failure) -> Dict[str, Any]:
+    needed = planned_aspirate_ul(f.protocol, f.labware)
+    return {
+        "start": f.protocol["initial_volumes_ul"][f.labware],
+        "needed": needed,
+        "load": math.ceil(needed * 1.1 / 50) * 50,  # 10% margin, rounded up to 50 uL
+    }
+
+
+def free_tip_columns(f: Failure) -> Dict[str, Any]:
+    return {"free": f.state["unused_tip_columns"].get(f.labware, [])}
+
+
+FACTS = {fn.__name__: fn for fn in (container_fit, liquid_levels, reagent_plan, free_tip_columns)}
+
+
+def _as_list(value: Any) -> List[Any]:
+    return value if isinstance(value, list) else [value]
+
+
+def _matches(cond: Dict[str, Any], f: Failure) -> bool:
+    if "error" in cond and not isinstance(f.err, tuple(EXCEPTIONS[name] for name in _as_list(cond["error"]))):
+        return False
+    if "message_contains" in cond and cond["message_contains"] not in str(f.err):
+        return False
+    if "device_code" in cond and getattr(f.err, "code", None) != cond["device_code"]:
+        return False
+    if "action" in cond and f.step.get("action") not in _as_list(cond["action"]):
+        return False
+    if "action_is_not" in cond and f.step.get("action") in _as_list(cond["action_is_not"]):
+        return False
+    if "reagent_loaded" in cond and f.reagent_loaded() != cond["reagent_loaded"]:
+        return False
+    return True
+
+
+def _text(value: Any) -> str:
+    """Entry text is a string or a list of sentences, joined with spaces."""
+    return " ".join(value) if isinstance(value, list) else value
+
+
+def _is_text(value: Any) -> bool:
+    return isinstance(value, str) or (isinstance(value, list) and bool(value) and all(isinstance(s, str) for s in value))
+
+
+def _check_entry(i: int, entry: Dict[str, Any], last: bool) -> None:
+    where = f"{KNOWLEDGE_BASE.name} entry {i + 1} ({entry.get('id', 'no id')})"
+    if not all(isinstance(entry.get(k), str) for k in ("id", "code")) or not _is_text(entry.get("explanation")):
+        raise ValueError(f"{where}: needs an id, a code and an explanation")
+    if unknown := set(entry) - ENTRY_FIELDS:
+        raise ValueError(f"{where}: unknown field(s) {sorted(unknown)}")
+    if not isinstance(entry.get("fixes", []), list) or not all(_is_text(f) for f in entry.get("fixes", [])):
+        raise ValueError(f"{where}: fixes must be a list of strings (or of lists of sentences)")
+    if "when" not in entry and not last:
+        raise ValueError(f"{where}: only the last entry may leave out 'when'")
+    for cond in _as_list(entry.get("when", {})):
+        if unknown := set(cond) - CONDITIONS:
+            raise ValueError(f"{where}: unknown condition(s) {sorted(unknown)}")
+        if missing := [e for e in _as_list(cond.get("error", [])) if e not in EXCEPTIONS]:
+            raise ValueError(f"{where}: unknown error class(es) {missing}")
+    if missing := [name for name in entry.get("facts", []) if name not in FACTS]:
+        raise ValueError(f"{where}: unknown fact(s) {missing}")
+
+
+@functools.lru_cache(maxsize=None)
+def knowledge_base(path: Path = KNOWLEDGE_BASE) -> List[Dict[str, Any]]:
+    """Load and check the knowledge base; typos in a hand-edited entry fail here, not mid-run."""
+    entries = json.loads(path.read_text()).get("entries")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError(f"{path.name}: expected a list of entries under 'entries'")
+    for i, entry in enumerate(entries):
+        _check_entry(i, entry, last=i == len(entries) - 1)
+    if "when" in entries[-1] and entries[-1]["when"]:
+        raise ValueError(f"{path.name}: the last entry must leave out 'when' so every error is covered")
+    ids = [e["id"] for e in entries]
+    if dupes := sorted({x for x in ids if ids.count(x) > 1}):
+        raise ValueError(f"{path.name}: duplicate id(s) {dupes}")
+    return entries
+
+
+def lookup(f: Failure) -> Dict[str, Any]:
+    """The first knowledge-base entry whose conditions match this failure."""
+    return next(e for e in knowledge_base() if any(_matches(c, f) for c in _as_list(e.get("when", {}))))
+
+
 def translate(
     exc: BaseException,
     step: Optional[Dict[str, Any]],
@@ -74,150 +237,103 @@ def translate(
     state: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Build a lab-concept diagnostic for an exception raised while running `step`."""
-    err = unwrap(exc)
-    raw = f"{type(err).__name__}: {err}"
-    step = step or {}
-    n = step.get("step")
-    labware = step.get("labware")
-    channels = step.get("channels", [0])
-    diag: Dict[str, Any] = {"step": n, "step_ir": step, "raw_error": raw, "deck_state": state}
+    f = Failure(unwrap(exc), step or {}, protocol, res, state)
+    entry = lookup(f)
+    fields = f.fields()
+    for name in entry.get("facts", []):
+        fields.update(FACTS[name](f))
+    return {
+        "step": fields["n"],
+        "step_ir": f.step,
+        "raw_error": fields["raw"],
+        "deck_state": state,
+        "kb_entry": entry["id"],
+        "error_code": entry["code"],
+        "explanation": _text(entry["explanation"]).format(**fields),
+        "suggested_fixes": [_text(fix).format(**fields) for fix in entry.get("fixes", [])],
+    }
 
-    if isinstance(err, ChannelsDoNotFitError) or (isinstance(err, ValueError) and "space channels" in str(err)):
-        width = res[labware].get_size_y() if labware in res else 0.0
-        fit = max(1, math.floor(width / CHANNEL_PITCH_MM))
-        diag.update(
-            error_code="CHANNEL_SPACING",
-            explanation=(
-                f"Step {n} sends {len(channels)} channels into '{labware}' at the same time. "
-                f"Hamilton channels must stay at least {CHANNEL_PITCH_MM:g} mm apart, and '{labware}' is only "
-                f"{width:g} mm wide, so about {fit} channel(s) fit in it at once. The robot physically cannot "
-                f"lower all {len(channels)} channels into it together."
-            ),
-            suggested_fixes=[
-                f"Replace step {n} with {len(channels)} steps of the same action, each using a single channel "
-                f"(channels [0], then [1], ... [{channels[-1]}]) and the same labware and volume_ul.",
-                "Or move this reagent to a container wide enough for 8 channels (a trough), if one is on the deck.",
-            ],
-        )
-    elif isinstance(err, TooLittleLiquidError):
-        available = state["container_volumes_ul"].get(labware)
-        requested = re.findall(r"([\d.]+)uL", str(err))
-        # Lowering volume_ul would also stop the error, but it changes the experiment and the
-        # intent guard rejects it, so it is only offered when no reagent can be loaded instead.
-        fixes = [
-            f"'{labware}' is not loaded by the scientist, so more liquid must reach it from an earlier step. "
-            "Moving less liquid changes the experiment and needs the scientist's approval."
-        ]
-        detail = ""
-        if labware is not None and labware in protocol.get("initial_volumes_ul", {}):
-            start = protocol["initial_volumes_ul"][labware]
-            needed = planned_aspirate_ul(protocol, labware)
-            load = math.ceil(needed * 1.1 / 50) * 50  # 10% margin, rounded up to 50 uL
-            detail = (
-                f" The plan loads {start:g} uL into '{labware}' but aspirates {needed:g} uL from it in total, "
-                f"so it runs dry before the protocol finishes."
-            )
-            fixes = [f"Have the scientist load more reagent (needed {needed:g} uL plus a 10% margin): "
-                     f'{{"op": "set_initial_volume", "labware": "{labware}", "volume_ul": {load}}}. '
-                     "This keeps every step unchanged. Do not lower volume_ul: that changes the experiment "
-                     "and is rejected."]
-        diag.update(
-            error_code="INSUFFICIENT_LIQUID",
-            explanation=(
-                f"Step {n} tries to aspirate {requested[0] if requested else step.get('volume_ul')} uL per channel "
-                f"from '{labware}', but it only holds {available if available is not None else 'too little'} uL "
-                f"at this point.{detail}"
-            ),
-            suggested_fixes=fixes,
-        )
-    elif isinstance(err, TooLittleVolumeError) and step.get("action") == "aspirate":
-        diag.update(
-            error_code="TIP_OVERFLOW",
-            explanation=(
-                f"Step {n} aspirates {step.get('volume_ul')} uL per channel, more than the mounted tips have room "
-                f"for (tips may already hold liquid from earlier aspirates). {err}"
-            ),
-            suggested_fixes=[
-                f"Lower volume_ul in step {n}, or dispense what the tips already hold before aspirating again."
-            ],
-        )
-    elif isinstance(err, TooLittleVolumeError):
-        diag.update(
-            error_code="CONTAINER_OVERFLOW",
-            explanation=f"Step {n} dispenses more into '{labware}' than it can hold. {err}",
-            suggested_fixes=[f"Lower volume_ul in step {n}, or dispense into an emptier well or column."],
-        )
-    elif isinstance(err, HasTipError):
-        what = "a tip spot that already holds a tip" if step.get("action") != "tips_on" else "channels that already carry tips"
-        diag.update(
-            error_code="TIP_ALREADY_MOUNTED",
-            explanation=f"Step {n} ({step.get('action')}) hits {what}. {err}",
-            suggested_fixes=[f"Add a tips_off step before step {n} so the channels are empty before picking up new tips."],
-        )
-    elif isinstance(err, NoTipError):
-        if step.get("action") == "tips_on":
-            free = state["unused_tip_columns"].get(labware, [])
-            diag.update(
-                error_code="TIP_SPOT_EMPTY",
-                explanation=f"Step {n} picks up tips from '{labware}' column {step.get('column')}, but those tips were already used.",
-                suggested_fixes=[f"Change the column in step {n} to an unused one. Unused full columns in '{labware}': {free}."],
-            )
-        else:
-            diag.update(
-                error_code="NO_TIP_MOUNTED",
-                explanation=f"Step {n} ({step.get('action')}) runs on channels {channels} without tips mounted.",
-                suggested_fixes=[f"Add a tips_on step for channels {channels} before step {n}."],
-            )
-    elif isinstance(err, CrossContaminationError):
-        diag.update(
-            error_code="CROSS_CONTAMINATION",
-            explanation=f"Step {n} would reuse a tip that touched a different liquid. {err}",
-            suggested_fixes=[f"Add tips_off and tips_on (fresh tips) before step {n}."],
-        )
-    elif isinstance(err, DeviceError) and err.code == "NOT_ON_HEATER_SHAKER":
-        diag.update(
-            error_code=err.code,
-            explanation=f"Step {n} ({step.get('action')}) needs its plate on a heater-shaker. {err}",
-            suggested_fixes=[
-                "Have the scientist place this plate on the heater-shaker in the deck config "
-                "(this is a deck change, so it needs their approval)."
-            ],
-        )
-    elif isinstance(err, DeviceError) and err.code == "SHAKE_SPEED_OUT_OF_RANGE":
-        diag.update(
-            error_code=err.code,
-            explanation=f"Step {n} asks the heater-shaker for {step.get('speed_rpm')} rpm. {err}",
-            suggested_fixes=[
-                "No repair keeps this step as written: the device cannot reach this speed. Changing speed_rpm "
-                "changes the experiment, so the scientist must approve a different speed or device."
-            ],
-        )
-    elif isinstance(err, DeviceError) and err.code == "TEMPERATURE_OUT_OF_RANGE":
-        diag.update(
-            error_code=err.code,
-            explanation=f"Step {n} asks the heater-shaker for {step.get('temperature_c')} C. {err}",
-            suggested_fixes=[
-                "No repair keeps this step as written: the device cannot reach this temperature. Changing "
-                "temperature_c changes the experiment, so the scientist must approve a different temperature or device."
-            ],
-        )
-    elif isinstance(err, ValueError) and "active cooling" in str(err):
-        diag.update(
-            error_code="HEATER_CANNOT_COOL",
-            explanation=(
-                f"Step {n} sets the heater-shaker to {step.get('temperature_c')} C, below the temperature an "
-                "earlier step heated it to. The heater-shaker can only heat; it cannot actively cool."
-            ),
-            suggested_fixes=[
-                f"Replace step {n} with two steps: a room-temperature incubate on the same plate (leave "
-                "temperature_c out; the heater switches off and the plate cools passively, allow 600 s), "
-                f"then step {n} unchanged.",
-            ],
-        )
-    else:
-        diag.update(
-            error_code="UNRECOGNIZED",
-            explanation=f"Step {n} failed in simulation with {raw}. No lab-concept translation exists for this error yet.",
-            suggested_fixes=[],
-        )
-    return diag
+
+# ---------- learning across runs ----------
+# After each self-healing run, every entry that diagnosed a failure gets its `observed` block
+# updated: how often it came up, how often the model's repair made it go away and with which
+# edits, and why edits were rejected. People read this to improve the entry; it is never sent
+# to the model, so recording does not change what the model sees.
+
+MAX_EXAMPLES = 5
+REJECTION_KINDS = [  # (text in the harness's rejection message, how it is tallied)
+    ("changes how much liquid is moved", "intent guard: moves a different volume"),
+    ("changes the experiment", "intent guard: changes a hold or an empty"),
+    ("which does not exist", "replace_step names a step that does not exist"),
+    ("Only the failing step", "edits a step other than the failing one"),
+    ("is replaced twice", "replaces the same step twice"),
+    ("set_initial_volume needs", "set_initial_volume on something that is not a container"),
+    ("Unknown edit op", "unknown edit op"),
+    ("no edits were proposed", "no edits proposed"),
+]
+_write_lock = threading.Lock()
+
+
+def rejection_kind(error: str) -> str:
+    return next((kind for text, kind in REJECTION_KINDS if text in error), "a new step does not compile")
+
+
+def _outcome(r: Dict[str, Any], nxt: Optional[Dict[str, Any]]) -> Optional[str]:
+    """How a failed round's repair went: the edit ops that resolved it, or None if it did not.
+    Resolved means the next round passed, or failed in the simulator at a different entry or step."""
+    applied = [r["edits"][i] for i in r.get("edits_applied", [])]
+    if not applied or nxt is None:
+        return None
+    moved_on = nxt["passed"] or (nxt.get("kb_entry") and (nxt["kb_entry"], nxt.get("step")) != (r["kb_entry"], r.get("step")))
+    return "+".join(sorted({e.get("op", "?") for e in applied})) if moved_on else None
+
+
+def record_run(rounds: List[Dict[str, Any]], protocol: str, model: str, path: Path = KNOWLEDGE_BASE,
+               today: Optional[datetime.date] = None) -> List[str]:
+    """Add what a self-healing run learned to the knowledge base. `rounds` is HealResult.rounds.
+    Returns the ids of the entries that were updated."""
+    date = (today or datetime.date.today()).isoformat()
+    with _write_lock:
+        kb = json.loads(path.read_text())
+        by_id = {e["id"]: e for e in kb["entries"]}
+        updated = []
+        for i, r in enumerate(rounds):
+            entry = by_id.get(r.get("kb_entry"))
+            if entry is None:
+                continue  # passed, failed before the simulator, or the entry was renamed since
+            obs = entry.setdefault("observed", {
+                "seen": 0, "repair_attempts": 0, "resolved": 0, "resolved_by": {}, "rejected": {},
+                "protocols": [], "models": [], "first_seen": date, "last_seen": date, "examples": [],
+            })
+            nxt = rounds[i + 1] if i + 1 < len(rounds) else None
+            resolved_by = _outcome(r, nxt)
+            obs["seen"] += 1
+            if r.get("edits_applied"):
+                obs["repair_attempts"] += 1
+            if resolved_by:
+                obs["resolved"] += 1
+                obs["resolved_by"][resolved_by] = obs["resolved_by"].get(resolved_by, 0) + 1
+            for err in r.get("edit_errors", []):
+                kind = rejection_kind(err)
+                obs["rejected"][kind] = obs["rejected"].get(kind, 0) + 1
+            for key, value in (("protocols", protocol), ("models", model)):
+                if value and value not in obs[key]:
+                    obs[key].append(value)
+            obs["last_seen"] = date
+            if resolved_by:
+                outcome = f"resolved by {resolved_by}"
+            elif "edits" not in r:
+                outcome = "no repair attempted (out of rounds)"
+            elif not r.get("edits_applied"):
+                outcome = "all edits rejected"
+            else:
+                outcome = "edits applied, failure remained"
+            obs["examples"] = (obs["examples"] + [{
+                "date": date, "protocol": protocol, "model": model, "step": r.get("step"),
+                "raw_error": r.get("raw_error"), "outcome": outcome,
+            }])[-MAX_EXAMPLES:]
+            updated.append(entry["id"])
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(kb, indent=2, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)  # never leave a half-written knowledge base
+    return updated

@@ -392,6 +392,8 @@ class SelfHealer:
             gate.feedback += rejection
             rejection = ""
             record: Dict[str, Any] = {"round": round_num, "stage": gate.stage, "passed": gate.passed, "result": gate.summary}
+            if gate.detail.get("kb_entry"):  # the knowledge-base entry that explained this failure
+                record.update(kb_entry=gate.detail["kb_entry"], step=gate.step, raw_error=gate.detail["raw_error"])
             rounds.append(record)
             print(f"  round {round_num}: {gate.stage} {'PASSED' if gate.passed else 'FAILED'} - {gate.summary}")
             emit("gate", {

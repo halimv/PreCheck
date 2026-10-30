@@ -25,6 +25,7 @@ from pathlib import Path
 
 import yaml
 
+from pipeline import diagnostics
 from pipeline.deck import deck_config_for
 from pipeline.self_heal import OllamaBackend, SelfHealer, ir_diff
 from pipeline.stage2_compiler import compile_protocol
@@ -91,6 +92,8 @@ def main():
         print(f"Self-healing with {args.model} (feedback: {args.feedback}, max {args.max_rounds} rounds)")
         result = healer.heal(protocol, max_rounds=args.max_rounds)
         (out_dir / "heal_log.json").write_text(json.dumps(result.rounds, indent=2))
+        if learned := diagnostics.record_run(result.rounds, Path(args.protocol).name, args.model):
+            print(f"Recorded in {diagnostics.KNOWLEDGE_BASE.name}: {', '.join(sorted(set(learned)))}")
         print(f"\nResult: {result.status} after {len(result.rounds) - 1} repair round(s). Log: {out_dir / 'heal_log.json'}")
         if result.status == "HEALED":
             healed_path = out_dir / f"{stem}_healed.json"
