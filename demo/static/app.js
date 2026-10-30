@@ -5,41 +5,7 @@ const STAGES = [["verify", "Verifier"], ["compile", "Compiler"], ["simulate", "S
 
 const $ = (id) => document.getElementById(id);
 const state = { protocols: [], runId: null, source: null, timer: null, startedAt: 0, rounds: {} };
-
-// ---------- small DOM helpers (all model/protocol text goes through textContent) ----------
-
-function el(tag, attrs = {}, ...children) {
-  const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === "class") node.className = v;
-    else if (k === "text") node.textContent = v;
-    else node.setAttribute(k, v);
-  }
-  for (const child of children) if (child != null) node.append(child);
-  return node;
-}
-
-const fmt = (n) => (Number.isInteger(n) ? String(n) : String(+Number(n).toFixed(2)));
-
-function channels(list = []) {
-  if (!list.length) return "–";
-  const contiguous = list.every((c, i) => i === 0 || c === list[i - 1] + 1);
-  return contiguous && list.length > 1 ? `${list[0]}–${list[list.length - 1]}` : list.join(", ");
-}
-
-function describeStep(s) {
-  const parts = [s.action];
-  if (s.volume_ul) parts.push(`${fmt(s.volume_ul)} µL`);
-  parts.push(s.labware);
-  if (s.column != null) parts.push(`column ${s.column}`);
-  parts.push(`channel${(s.channels || []).length === 1 ? "" : "s"} ${channels(s.channels)}`);
-  return parts.join(" · ");
-}
-
-function volumes(obj = {}) {
-  const entries = Object.entries(obj);
-  return entries.length ? entries.map(([k, v]) => `${k}: ${fmt(v)} µL`).join(", ") : "none listed";
-}
+// el, fmt, describeStep, volumes and renderEdit come from common.js.
 
 // ---------- status bar ----------
 
@@ -152,19 +118,6 @@ function onModelRequest(req) {
   setStatus("running", "Running", `Round ${req.round}: waiting for ${req.model}`);
 }
 
-function renderEdit(edit) {
-  if (edit.op === "set_initial_volume") {
-    return el("li", { text: `Load ${fmt(edit.volume_ul)} µL into ${edit.labware} before the run` });
-  }
-  if (edit.op === "replace_step") {
-    const steps = edit.new_steps || [];
-    const head = steps.length ? `Replace step ${edit.step} with ${steps.length} step(s):` : `Delete step ${edit.step}`;
-    return el("li", {}, el("span", { text: head }),
-      steps.length ? el("ul", {}, ...steps.map((s) => el("li", { class: "mono", text: describeStep(s) }))) : null);
-  }
-  return el("li", { class: "mono", text: JSON.stringify(edit) });
-}
-
 function onModelReply(reply) {
   const card = roundCard(reply.round);
   const block = card.querySelector(".block.model");
@@ -178,7 +131,12 @@ function onModelReply(reply) {
 
 function onEdits(verdict) {
   const card = roundCard(verdict.round);
-  if (verdict.accepted) {
+  if (verdict.accepted && verdict.errors && verdict.errors.length) {
+    card.append(el("div", { class: "block verdict partial" },
+      el("strong", { text: "Partly accepted by the harness. " }),
+      el("span", { text: `Applied: ${verdict.description}. Protocol now has ${verdict.step_count} steps. Rejected, and sent back to the model:` }),
+      el("ul", {}, ...verdict.errors.map((e) => el("li", { text: e })))));
+  } else if (verdict.accepted) {
     card.append(el("div", { class: "block verdict ok" },
       el("strong", { text: "Accepted by the harness. " }),
       el("span", { text: `Protocol now has ${verdict.step_count} steps.` })));

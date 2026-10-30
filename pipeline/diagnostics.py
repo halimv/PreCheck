@@ -19,6 +19,8 @@ from pylabrobot.resources.errors import (
     TooLittleVolumeError,
 )
 
+from pipeline.deck import DeviceError
+
 ROWS = "ABCDEFGH"
 CHANNEL_PITCH_MM = 9.0  # minimum spacing between Hamilton 1 mL channels
 
@@ -100,7 +102,12 @@ def translate(
     elif isinstance(err, TooLittleLiquidError):
         available = state["container_volumes_ul"].get(labware)
         requested = re.findall(r"([\d.]+)uL", str(err))
-        fixes = [f"Lower volume_ul in step {n} so the source keeps enough liquid."]
+        # Lowering volume_ul would also stop the error, but it changes the experiment and the
+        # intent guard rejects it, so it is only offered when no reagent can be loaded instead.
+        fixes = [
+            f"'{labware}' is not loaded by the scientist, so more liquid must reach it from an earlier step. "
+            "Moving less liquid changes the experiment and needs the scientist's approval."
+        ]
         detail = ""
         if labware is not None and labware in protocol.get("initial_volumes_ul", {}):
             start = protocol["initial_volumes_ul"][labware]
@@ -110,9 +117,10 @@ def translate(
                 f" The plan loads {start:g} uL into '{labware}' but aspirates {needed:g} uL from it in total, "
                 f"so it runs dry before the protocol finishes."
             )
-            fixes.insert(0, f"Have the scientist load more reagent (needed {needed:g} uL plus a 10% margin): "
-                            f'{{"op": "set_initial_volume", "labware": "{labware}", "volume_ul": {load}}}. '
-                            "This keeps every step unchanged.")
+            fixes = [f"Have the scientist load more reagent (needed {needed:g} uL plus a 10% margin): "
+                     f'{{"op": "set_initial_volume", "labware": "{labware}", "volume_ul": {load}}}. '
+                     "This keeps every step unchanged. Do not lower volume_ul: that changes the experiment "
+                     "and is rejected."]
         diag.update(
             error_code="INSUFFICIENT_LIQUID",
             explanation=(
@@ -165,6 +173,46 @@ def translate(
             error_code="CROSS_CONTAMINATION",
             explanation=f"Step {n} would reuse a tip that touched a different liquid. {err}",
             suggested_fixes=[f"Add tips_off and tips_on (fresh tips) before step {n}."],
+        )
+    elif isinstance(err, DeviceError) and err.code == "NOT_ON_HEATER_SHAKER":
+        diag.update(
+            error_code=err.code,
+            explanation=f"Step {n} ({step.get('action')}) needs its plate on a heater-shaker. {err}",
+            suggested_fixes=[
+                "Have the scientist place this plate on the heater-shaker in the deck config "
+                "(this is a deck change, so it needs their approval)."
+            ],
+        )
+    elif isinstance(err, DeviceError) and err.code == "SHAKE_SPEED_OUT_OF_RANGE":
+        diag.update(
+            error_code=err.code,
+            explanation=f"Step {n} asks the heater-shaker for {step.get('speed_rpm')} rpm. {err}",
+            suggested_fixes=[
+                "No repair keeps this step as written: the device cannot reach this speed. Changing speed_rpm "
+                "changes the experiment, so the scientist must approve a different speed or device."
+            ],
+        )
+    elif isinstance(err, DeviceError) and err.code == "TEMPERATURE_OUT_OF_RANGE":
+        diag.update(
+            error_code=err.code,
+            explanation=f"Step {n} asks the heater-shaker for {step.get('temperature_c')} C. {err}",
+            suggested_fixes=[
+                "No repair keeps this step as written: the device cannot reach this temperature. Changing "
+                "temperature_c changes the experiment, so the scientist must approve a different temperature or device."
+            ],
+        )
+    elif isinstance(err, ValueError) and "active cooling" in str(err):
+        diag.update(
+            error_code="HEATER_CANNOT_COOL",
+            explanation=(
+                f"Step {n} sets the heater-shaker to {step.get('temperature_c')} C, below the temperature an "
+                "earlier step heated it to. The heater-shaker can only heat; it cannot actively cool."
+            ),
+            suggested_fixes=[
+                f"Replace step {n} with two steps: a room-temperature incubate on the same plate (leave "
+                "temperature_c out; the heater switches off and the plate cools passively, allow 600 s), "
+                f"then step {n} unchanged.",
+            ],
         )
     else:
         diag.update(

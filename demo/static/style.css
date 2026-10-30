@@ -234,6 +234,7 @@ pre {
 
 .verdict.ok { background: var(--ok-bg); color: var(--ok); }
 .verdict.bad { background: var(--bad-bg); color: var(--bad); }
+.verdict.partial { background: var(--warn-bg); color: var(--warn); }
 .verdict ul { margin: 6px 0 0; padding-left: 18px; }
 
 .thinking { display: flex; align-items: center; gap: 10px; color: var(--muted); }
@@ -256,6 +257,81 @@ pre {
 .diff .add { color: var(--ok); }
 .diff .del { color: var(--bad); }
 .diff .hunk { color: var(--muted); }
+
+/* ---------- page nav ---------- */
+
+.nav { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.nav a {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid var(--border);
+}
+.nav a.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+
+/* ---------- benchmark page ---------- */
+
+.bench-section { margin-bottom: 28px; max-width: 1100px; }
+
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.summary-card h3 { font-size: 0.95rem; margin-bottom: 6px; }
+.summary-card .big { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.summary-card .big small { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
+.summary-card .labels { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.summary-card .labels .badge { margin-right: 0; }
+
+.table-wrap { overflow-x: auto; }
+.bench-table {
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  min-width: 100%;
+}
+.bench-table th, .bench-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+.bench-table thead th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.bench-table tbody th { font-weight: 600; white-space: nowrap; }
+.bench-table tbody th small { display: block; font-weight: 400; }
+.bench-table td { font-variant-numeric: tabular-nums; }
+.bench-table td.current { background: var(--surface-2); font-weight: 700; }
+
+.matrix td { padding: 6px 8px; }
+.cell {
+  width: 100%;
+  min-width: 130px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  text-align: left;
+  font-weight: 500;
+}
+.cell-score { font-size: 1.15rem; font-weight: 700; min-width: 1.6em; font-variant-numeric: tabular-nums; }
+.cell-status { font-size: 0.78rem; }
+.cell.s-good { background: var(--ok-bg); color: var(--ok); }
+.cell.s-mid { background: var(--warn-bg); color: var(--warn); }
+.cell.s-bad { background: var(--bad-bg); color: var(--bad); }
+.cell.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.pill { font-size: 0.8rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; font-family: var(--mono); }
+.pill.on { background: var(--ok-bg); color: var(--ok); }
+.pill.off { background: var(--surface-2); color: var(--muted); }
+.pill.penalty { background: var(--bad-bg); color: var(--bad); }
+
+.beyond { opacity: 0.55; }
+#detail .timeline { margin-top: 16px; }
 
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }

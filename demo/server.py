@@ -28,7 +28,7 @@ from flask import Flask, Response, abort, jsonify, request, send_from_directory
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from pipeline.deck import load_deck_config  # noqa: E402
+from pipeline.deck import deck_config_for  # noqa: E402
 from pipeline.self_heal import OllamaBackend, SelfHealer, ir_diff  # noqa: E402
 from pipeline.stage2_compiler import compile_protocol  # noqa: E402
 from pipeline.stage4_visualizer import VisualizerSession, replay, start_visualizer  # noqa: E402
@@ -36,10 +36,10 @@ from pipeline.stage4_visualizer import VisualizerSession, replay, start_visualiz
 CONFIG = ROOT / "config"
 PROTOCOLS = ROOT / "protocols"
 WORK = ROOT / "build" / "demo"
+BENCHMARKS = ROOT / "build" / "benchmark"  # written by `python -m benchmark.run`
 OLLAMA = "http://localhost:11434"
 REPLAY_STEP_DELAY_S = 0.4
 
-DECK_CONFIG = load_deck_config(str(CONFIG / "plr_deck.json"))
 app = Flask(__name__, static_folder=str(Path(__file__).parent / "static"), static_url_path="/static")
 
 
@@ -50,6 +50,7 @@ class Run:
         self.id = uuid.uuid4().hex[:8]
         self.protocol_file = protocol_file
         self.original = protocol
+        self.deck_config = deck_config_for(protocol, ROOT)
         self.model, self.max_rounds, self.feedback = model, max_rounds, feedback
         self.started = time.time()
         self.events: List[Dict[str, Any]] = []
@@ -82,7 +83,7 @@ def run_worker(run: Run) -> None:
     work_dir = WORK / run.id
     try:
         healer = SelfHealer(
-            deck_config=DECK_CONFIG,
+            deck_config=run.deck_config,
             labware_path=str(CONFIG / "labware.json"),
             protocol_defaults_path=str(CONFIG / "protocol_defaults.json"),
             backend=OllamaBackend(model=run.model),
@@ -101,7 +102,7 @@ def run_worker(run: Run) -> None:
         if result.status == "HEALED":
             stem = Path(run.protocol_file).stem
             (work_dir / f"{stem}_healed.json").write_text(json.dumps(result.protocol, indent=2))
-            (work_dir / f"{stem}_healed_plr.py").write_text(compile_protocol(result.protocol, DECK_CONFIG))
+            (work_dir / f"{stem}_healed_plr.py").write_text(compile_protocol(result.protocol, run.deck_config))
             done["diff"] = ir_diff(run.original, result.protocol)
             done["saved_to"] = str(work_dir.relative_to(ROOT))
         run.emit("done", done)
@@ -122,7 +123,7 @@ VIS: Dict[str, Optional[VisualizerSession]] = {"session": None}
 
 async def _replay_logged(session: VisualizerSession, protocol: Dict[str, Any]) -> None:
     try:
-        await replay(session, protocol, DECK_CONFIG, step_delay_s=REPLAY_STEP_DELAY_S)
+        await replay(session, protocol, deck_config_for(protocol, ROOT), step_delay_s=REPLAY_STEP_DELAY_S)
     except Exception as e:
         print(f"[stage 4] replay stopped: {type(e).__name__}: {e}")
 
@@ -133,7 +134,7 @@ async def _open_visualizer(protocol: Dict[str, Any], name: str) -> str:
             await VIS["session"].stop()
         except Exception:
             pass
-    session = await start_visualizer(protocol, DECK_CONFIG, open_browser=False, name=name)
+    session = await start_visualizer(protocol, deck_config_for(protocol, ROOT), open_browser=False, name=name)
     VIS["session"] = session
     asyncio.get_running_loop().create_task(_replay_logged(session, protocol))
     return session.url
@@ -241,6 +242,39 @@ def visualize(run_id: str):
     except Exception as e:
         return jsonify({"error": f"Could not start the visualizer: {type(e).__name__}: {e}"}), 500
     return jsonify({"url": url})
+
+
+# --- Benchmark results (read-only views of build/benchmark/<run>/runs.jsonl) ---
+
+def _benchmark_records(path: Path) -> List[Dict[str, Any]]:
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
+@app.get("/benchmark")
+def benchmark_page():
+    return send_from_directory(app.static_folder, "benchmark.html")
+
+
+@app.get("/api/benchmarks")
+def list_benchmarks():
+    items = []
+    for path in sorted(BENCHMARKS.glob("*/runs.jsonl"), reverse=True):
+        records = _benchmark_records(path)
+        items.append({
+            "id": path.parent.name,
+            "runs": len(records),
+            "scenes": len({r["scene"] for r in records}),
+            "conditions": sorted({r["condition"] for r in records}),
+        })
+    return jsonify(items)
+
+
+@app.get("/api/benchmarks/<bench_id>")
+def get_benchmark(bench_id: str):
+    path = BENCHMARKS / Path(bench_id).name / "runs.jsonl"
+    if not path.is_file():
+        abort(404)
+    return jsonify(_benchmark_records(path))
 
 
 def main():

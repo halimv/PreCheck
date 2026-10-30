@@ -70,7 +70,8 @@ Volume limits come from `config/labware.json` (Corning 3595 plate: 30 µL dead v
 | `CONTAMINATED_TIP` | A channel aspirates from a different source without `tips_off` | Same source may be reused; otherwise `tips_off` + `tips_on` |
 | `TIP_DEPLETED` | Tips picked from a rack column that was already used (tracked per rack) | Use an unused column or another rack |
 | `MISSING_TIP` | Aspirate or dispense on a channel with no tip mounted | `tips_on` first |
-| `VALIDATION_ERROR` | A required field is missing (column for `tips_on` or plate steps) | Add the field |
+| `VALIDATION_ERROR` | A required field is missing (column for `tips_on` or plate steps, `duration_s`, `speed_rpm`) | Add the field |
+| `TIPS_DURING_HOLD` | `incubate` or `shake` while tips are still mounted | `tips_off` first |
 
 The verifier models plate wells and tips only. It does not model source containers (tubes, troughs), container
 geometry, or tip capacity. Those are caught in Stage 3.
@@ -85,7 +86,26 @@ geometry, or tip capacity. Those are caught in Stage 3.
 | `CONTAINER_OVERFLOW` | `TooLittleVolumeError` on dispense | More liquid than the destination can hold |
 | `TIP_ALREADY_MOUNTED` / `NO_TIP_MOUNTED` / `TIP_SPOT_EMPTY` | `HasTipError` / `NoTipError` | Tip pickup or use out of order, or tips already used |
 | `CROSS_CONTAMINATION` | `CrossContaminationError` | A tip would touch a different liquid |
+| `NOT_ON_HEATER_SHAKER` | plate's parent is not a `HeaterShaker` | `incubate` or `shake` on a plate the deck doesn't put on a heater-shaker |
+| `SHAKE_SPEED_OUT_OF_RANGE` / `TEMPERATURE_OUT_OF_RANGE` | the simulated Hamilton heater-shaker's limits (20–2000 rpm, up to 105 °C, the same ones PLR's real backend asserts) | The device can't do it; changing it needs the scientist's approval |
+| `HEATER_CANNOT_COOL` | PLR: `Backend does not support active cooling` | A step asks for a lower temperature than an earlier step heated to |
 | `UNRECOGNIZED` | anything else | The raw error is passed through |
+
+### Device and waste steps
+
+Besides `tips_on`, `tips_off`, `aspirate` and `dispense`, the IR has three actions for plate assays:
+
+| Action | Fields | What it does |
+|---|---|---|
+| `empty` | plate, `column`, `channels`, optional `waste` | Aspirates everything in the column (whatever it holds at that point) into the waste. No dead-volume rule; the tips count as having touched that column |
+| `incubate` | plate, `duration_s`, optional `temperature_c` | Holds the plate on its heater-shaker; without `temperature_c` the heater switches off (room temperature) |
+| `shake` | plate, `duration_s`, `speed_rpm`, optional `temperature_c` | Shakes the plate on its heater-shaker |
+
+Device steps need a deck with a heater-shaker: `config/plr_deck_plate_assay.json` puts the Corning plate on a
+Hamilton heater-shaker (rails 26) and adds a wash-buffer trough. A protocol picks its deck with a top-level
+`"deck_config"` field; without one it uses `config/plr_deck.json`. Hold times are not waited out in simulation.
+The model's prompt only describes these actions when the protocol uses them, so prompts for transfer-only
+protocols are unchanged.
 
 ## Self-healing checks
 
@@ -96,9 +116,11 @@ The model can reply with two edit types: `replace_step` (replace the failing ste
 |---|---|
 | Step scope | Edits to any step other than the one that failed this round |
 | Compiles | New steps the Stage 2 compiler can't translate (missing volume, unknown labware, ...) |
-| Intent guard | Any change to the total volume each channel aspirates or dispenses at each location |
+| Intent guard | Any change to the total volume each channel aspirates or dispenses at each location, to how often each column is emptied, or to the total time of each heated incubate or shake (by plate, temperature and speed). Room-temperature holds may be added or lengthened, e.g. to let the plate cool, but not shortened |
 
-A rejected edit's reason is sent back to the model for the next round. The loop stops at a clean pass
+Edits are checked one at a time: those that pass are applied even if another edit in the same reply is
+rejected (on an intent-guard violation, the reply's `replace_step` is dropped and its `set_initial_volume`
+edits are kept). A rejected edit's reason is sent back to the model for the next round. The loop stops at a clean pass
 (`HEALED`) or after `--max-rounds` (`GAVE_UP`). Giving up is safe: nothing that failed a check gets through.
 
 ---
@@ -126,6 +148,11 @@ python demo/server.py            # then open http://127.0.0.1:8000  (--port to c
 ```
 
 Needs Ollama running with a model pulled. Runs are saved to `build/demo/<run id>/`, one run at a time.
+
+The **Benchmark results** page (`/benchmark`) shows any run of `python -m benchmark.run` saved in
+`build/benchmark/`: healed counts and mean scores per condition, a healed-by-retry-budget table, a scene ×
+condition score grid, and every round of any run (click a cell). See
+[docs/serial_dilution_benchmark_spec.md](docs/serial_dilution_benchmark_spec.md) for how runs are scored.
 
 ## Usage
 
@@ -166,6 +193,10 @@ python -m pytest precheck/ tests/ -q
 - `tests/test_reproducible_v1.py` (4 tests): keeps `protocols/serial_dilution_v1.json` as a fixed, known-bad
   reference. It must pass Stage 1, fail Stage 3 at step 2 with `CHANNEL_SPACING`, and pass after the reference
   repair (split step 2, load 900 µL of stock), without the original file or input being modified.
+- `tests/test_device_steps.py` (9 tests): `empty`, `incubate` and `shake` on `protocols/plate_wash_incubate_demo.json`.
+  The demo is an uncorrected zero-shot Claude draft and stays known-bad (Stage 3 fails at step 28: 4000 µL of
+  wash buffer loaded, 6400 µL needed). The tests check that, the reference repair, each device failure code,
+  and that the intent guard protects holds and empties.
 
 The live model loop has no unit tests; the notebook runs it end to end.
 
@@ -192,11 +223,13 @@ for documented runs, and never over the original.
 │   └── stage5_executor.py        # Hardware execution (stub)
 ├── config/
 │   ├── plr_deck.json             # PLR deck layout used by stages 2-5
+│   ├── plr_deck_plate_assay.json # Same deck plus a heater-shaker holding the plate and a wash-buffer trough
 │   ├── labware.json              # Labware specs used by the verifier (volume limits)
 │   ├── protocol_defaults.json    # Initial hardware state and experiment parameters
 │   └── hardware.json             # Earlier deck description (not used by the pipeline)
 ├── protocols/
 │   ├── serial_dilution_v1.json   # Full 68-step serial dilution; fixed known-bad reference (don't overwrite)
+│   ├── plate_wash_incubate_demo.json # Zero-shot Claude draft: coat, incubate, wash; known-bad (don't overwrite)
 │   ├── serial_dilution_v0.yaml   # Earlier 12-step version (used by the verifier tests)
 │   └── serial_dilution_simple.yaml
 ├── demo/
@@ -205,7 +238,8 @@ for documented runs, and never over the original.
 ├── notebooks/
 │   └── pipeline_walkthrough.ipynb
 ├── tests/
-│   └── test_reproducible_v1.py   # Keeps serial_dilution_v1.json fixed as the known-bad reference
+│   ├── test_reproducible_v1.py   # Keeps serial_dilution_v1.json fixed as the known-bad reference
+│   └── test_device_steps.py      # empty / incubate / shake on the plate-assay demo
 ├── docs/
 │   ├── self_healing_run_v1.md    # Report on the first successful repair run
 │   └── runs/                     # Logs and healed IRs from documented runs
@@ -237,6 +271,9 @@ successful repair of `serial_dilution_v1` in 3 rounds ([report](docs/self_healin
 - Labware changes in repairs. The intent guard rejects them (e.g. moving a reagent to a trough), even when they
   would be a valid fix.
 - A `mix` action in the IR.
+- Moving plates (gripper) and returning tips to the rack for reuse. Without tip return, washing with the
+  8-channel head needs a fresh tip column per column per wash, so wash-heavy assays run out of tips quickly.
+- Spill risk from shaking full wells, and plate reading. Neither is checked.
 - `serial_dilution_v0.yaml` and `serial_dilution_simple.yaml` have no `initial_volumes_ul`, so their sources start
   empty in Stage 3.
 - `serial_dilution_v1.json` metadata says `final_volume_per_well_ul: 100`, but its steps leave every well at

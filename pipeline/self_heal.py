@@ -32,6 +32,10 @@ STEP_SCHEMA = {
         "column": {"type": "integer"},
         "volume_ul": {"type": "number"},
         "channels": {"type": "array", "items": {"type": "integer"}},
+        "duration_s": {"type": "number"},
+        "temperature_c": {"type": "number"},
+        "speed_rpm": {"type": "number"},
+        "waste": {"type": "string"},
         "description": {"type": "string"},
     },
     "required": ["action", "labware", "volume_ul", "channels", "description"],
@@ -85,6 +89,22 @@ scientist loads into a container before the run.
 Reply with JSON: {"reasoning": "...", "edits": [...]}. Only use labware IDs listed in the deck.
 """
 
+# Appended to SYSTEM_PROMPT only for protocols that use these actions, so prompts for
+# liquid-transfer-only protocols (and their benchmark results) stay unchanged.
+EXTENDED_ACTIONS = ("empty", "incubate", "shake")
+EXTENDED_PROMPT = """
+More actions (volume_ul is 0 for all three):
+- empty: aspirate everything in a plate column on the given channels and dispense it into the \
+waste. Wells may go to 0 uL. The tips count as having aspirated from that column.
+- incubate: hold a plate on its heater-shaker for duration_s seconds, at temperature_c if given \
+(leave temperature_c out for room temperature, which switches the heater off).
+- shake: shake a plate on its heater-shaker at speed_rpm for duration_s seconds (temperature_c optional).
+- Tips must be off before incubate or shake. The heater-shaker can heat but cannot actively cool.
+- Repairs must keep every heated incubate and every shake at its original temperature, speed and \
+total time. Room-temperature incubates may be added or lengthened (for example to let the plate cool) \
+but not shortened or removed.
+"""
+
 
 class OllamaBackend:
     """Calls a local model through Ollama's chat API with a JSON-schema constrained reply."""
@@ -133,27 +153,29 @@ class HealResult:
 
 
 def _step_lines(protocol: Dict[str, Any]) -> List[str]:
-    keys = ("step", "action", "labware", "column", "volume_ul", "channels")
+    keys = ("step", "action", "labware", "column", "volume_ul", "channels", "duration_s", "temperature_c", "speed_rpm")
     return [json.dumps({k: s[k] for k in keys if k in s}) for s in protocol["steps"]]
 
 
-def apply_edits(
+def apply_valid_edits(
     protocol: Dict[str, Any],
     edits: List[Dict[str, Any]],
     labware_kinds: Dict[str, str],
     allowed_step: Optional[int] = None,
-) -> Tuple[Dict[str, Any], List[str]]:
-    """Apply model edits to a copy of the IR and renumber steps. Returns (new_ir, errors).
+) -> Tuple[Dict[str, Any], List[int], List[str]]:
+    """Apply each model edit that passes its own checks to a copy of the IR and renumber steps.
 
-    When `allowed_step` is set, replace_step may only target that step, which keeps each
-    repair local to the failure instead of letting the model rewrite working steps.
+    Returns (new_ir, indices of the applied edits, errors for the rest). When `allowed_step` is
+    set, replace_step may only target that step, which keeps each repair local to the failure
+    instead of letting the model rewrite working steps.
     """
     new = copy.deepcopy(protocol)
     errors: List[str] = []
+    applied: List[int] = []
     by_number = {s["step"]: i for i, s in enumerate(new["steps"])}
     replacements: Dict[int, List[Dict[str, Any]]] = {}
 
-    for edit in edits:
+    for idx, edit in enumerate(edits):
         op = edit.get("op")
         if op == "set_initial_volume":
             lid, vol = edit.get("labware"), edit.get("volume_ul")
@@ -173,27 +195,42 @@ def apply_edits(
             if n in replacements:
                 errors.append(f"Step {n} is replaced twice; combine those edits into one.")
                 continue
-            steps = []
+            steps, step_errors = [], []
             for k, s in enumerate(edit.get("new_steps", []), start=1):
                 step = {key: v for key, v in s.items() if key != "step"}
                 # Each replacement step must be translatable on its own (known labware, required fields).
                 try:
                     translate_step({**step, "step": f"{n} (new step {k})"}, labware_kinds)
                 except CompilationError as e:
-                    errors.append(str(e))
+                    step_errors.append(str(e))
                 steps.append(step)
+            if step_errors:
+                errors.extend(step_errors)
+                continue
             replacements[n] = steps
         else:
             errors.append(f"Unknown edit op '{op}'.")
+            continue
+        applied.append(idx)
 
-    if errors:
-        return protocol, errors
     for n in sorted(replacements, reverse=True):
         i = by_number[n]
         new["steps"][i:i + 1] = replacements[n]
     for i, s in enumerate(new["steps"], start=1):
         s["step"] = i
-    return new, []
+    return new, applied, errors
+
+
+def apply_edits(
+    protocol: Dict[str, Any],
+    edits: List[Dict[str, Any]],
+    labware_kinds: Dict[str, str],
+    allowed_step: Optional[int] = None,
+) -> Tuple[Dict[str, Any], List[str]]:
+    """All-or-nothing version of `apply_valid_edits`. Returns (new_ir, errors); on any error the
+    original IR comes back unchanged."""
+    new, _, errors = apply_valid_edits(protocol, edits, labware_kinds, allowed_step)
+    return (protocol, errors) if errors else (new, [])
 
 
 class SelfHealer:
@@ -248,16 +285,25 @@ class SelfHealer:
         return GateResult("simulate", False, sim.message, feedback=feedback, step=d["step"], detail=d)
 
     def _transfers(self, protocol: Dict[str, Any]) -> Dict[Tuple, float]:
-        """Total volume each channel aspirates/dispenses at each location (the experiment's liquid movement)."""
+        """The experiment's fingerprint: total volume each channel aspirates/dispenses at each location,
+        how many times each channel empties each plate column, and the total hold time of each device
+        condition (plate, temperature, speed)."""
         totals: Dict[Tuple, float] = {}
+
+        def add(key: Tuple, amount: float) -> None:
+            totals[key] = round(totals.get(key, 0.0) + amount, 3)
+
         for s in protocol["steps"]:
-            if s.get("action") not in ("aspirate", "dispense"):
+            action = s.get("action")
+            if action in ("incubate", "shake"):
+                add((action, s.get("labware"), s.get("temperature_c"), s.get("speed_rpm")), float(s.get("duration_s", 0)))
+                continue
+            if action not in ("aspirate", "dispense", "empty"):
                 continue
             kind = self.labware_kinds.get(s.get("labware"))
             where = (s.get("labware"), s.get("column") if kind == "plate" else None)
             for ch in s.get("channels", [0]):
-                key = (s["action"], *where, ch)
-                totals[key] = round(totals.get(key, 0.0) + float(s.get("volume_ul", 0)), 3)
+                add((action, *where, ch), 1.0 if action == "empty" else float(s.get("volume_ul", 0)))
         return totals
 
     @staticmethod
@@ -265,11 +311,30 @@ class SelfHealer:
         changed = []
         for key in sorted(set(baseline) | set(candidate), key=str):
             before, after = baseline.get(key, 0.0), candidate.get(key, 0.0)
-            if before != after:
-                action, labware, column, ch = key
-                where = f"{labware} column {column}" if column is not None else labware
-                changed.append(f"channel {ch} {action} at {where}: {before:g} -> {after:g} uL")
+            if before == after:
+                continue
+            action, labware, a, b = key
+            if action == "incubate" and a is None and after > before:
+                continue  # extra room-temperature hold, e.g. to let the plate cool
+            if action in ("incubate", "shake"):
+                cond = f"{a:g} C" if a is not None else "room temperature"
+                if b is not None:
+                    cond += f", {b:g} rpm"
+                changed.append(f"{action} {labware} at {cond}: {before:g} -> {after:g} s")
+            else:
+                where = f"{labware} column {a}" if a is not None else labware
+                unit = " time(s)" if action == "empty" else " uL"
+                changed.append(f"channel {b} {action} at {where}: {before:g} -> {after:g}{unit}")
         return changed
+
+    @staticmethod
+    def _intent_error(changed: List[str]) -> str:
+        shown = "; ".join(changed[:3]) + ("; ..." if len(changed) > 3 else "")
+        if any(c.startswith(("incubate", "shake")) for c in changed):
+            return (f"the edit changes the experiment ({shown}). A repair must keep every channel's total "
+                    "aspirated and dispensed volumes, every empty, and every heated or shaken hold the same")
+        return (f"the edit changes how much liquid is moved ({shown}). A repair must keep every channel's total "
+                "aspirated and dispensed volumes the same; load more reagent instead of moving less")
 
     def _prompt(self, protocol: Dict[str, Any], gate: GateResult, history: List[str]) -> str:
         deck = "\n".join(f"- {lid} ({spec['kind']})" for lid, spec in self.deck_config["labware"].items())
@@ -318,6 +383,9 @@ class SelfHealer:
         # Intent guard: a repair may restructure steps, but every channel must still move the same
         # total volume from and to the same places as in the original plan.
         baseline = self._transfers(protocol)
+        system = SYSTEM_PROMPT
+        if any(s.get("action") in EXTENDED_ACTIONS for s in protocol["steps"]):
+            system += EXTENDED_PROMPT
 
         for round_num in range(max_rounds + 1):
             gate = self.evaluate(current, round_num)
@@ -337,30 +405,41 @@ class SelfHealer:
                 break
 
             emit("model_request", {"round": round_num, "model": getattr(self.backend, "model", "")})
-            reply = self.backend.propose_edits(SYSTEM_PROMPT, self._prompt(current, gate, history))
+            reply = self.backend.propose_edits(system, self._prompt(current, gate, history))
             record["model_reasoning"] = reply.get("reasoning", "")
             record["edits"] = reply.get("edits", [])
             emit("model_reply", {"round": round_num, "reasoning": record["model_reasoning"], "edits": record["edits"]})
             print(f"    model: {record['model_reasoning'][:300]}")
-            updated, errors = apply_edits(current, record["edits"], self.labware_kinds, allowed_step=gate.step)
-            if not errors:
-                changed = self._intent_violations(baseline, self._transfers(updated))
-                if changed:
-                    errors = [
-                        f"the edit changes how much liquid is moved ({'; '.join(changed[:3])}"
-                        f"{'; ...' if len(changed) > 3 else ''}). A repair must keep every channel's total "
-                        "aspirated and dispensed volumes the same; load more reagent instead of moving less"
-                    ]
+            # Each edit that passes its own checks is kept, so one bad edit doesn't sink a correct one
+            # sent with it. Only replace_step can change the experiment, so on an intent violation
+            # those are dropped and the rest is kept.
+            edits = record["edits"]
+            updated, applied, errors = apply_valid_edits(current, edits, self.labware_kinds, allowed_step=gate.step)
+            changed = self._intent_violations(baseline, self._transfers(updated)) if applied else []
+            if changed:
+                errors.append(self._intent_error(changed))
+                keep = [i for i in applied if edits[i].get("op") != "replace_step"]
+                updated, kept, _ = apply_valid_edits(current, [edits[i] for i in keep], self.labware_kinds, gate.step)
+                applied = [keep[i] for i in kept]
+            applied_edits = [edits[i] for i in applied]
+            if not edits:
+                errors = ["no edits were proposed"]
             if errors:
                 record["edit_errors"] = errors
+            if not applied:
                 print(f"    edits rejected: {errors}")
                 emit("edits", {"round": round_num, "accepted": False, "errors": errors})
                 rejection = "\nYour previous attempt was rejected: " + "; ".join(errors)
                 continue
-            print(f"    applied: {self._describe(gate, record['edits'])[2:]}")
-            emit("edits", {"round": round_num, "accepted": True, "description": self._describe(gate, record["edits"])[2:],
-                           "step_count": len(updated["steps"])})
-            history.append(self._describe(gate, record["edits"]))
+            record["edits_applied"] = applied
+            description = self._describe(gate, applied_edits)[2:]
+            print(f"    applied: {description}" + (f"; rejected: {errors}" if errors else ""))
+            emit("edits", {"round": round_num, "accepted": True, "description": description,
+                           "applied": applied, "errors": errors, "step_count": len(updated["steps"])})
+            if errors:
+                rejection = ("\nPart of your previous attempt was applied (listed under earlier repair rounds); "
+                             "the rest was rejected: " + "; ".join(errors))
+            history.append(self._describe(gate, applied_edits))
             current = updated
 
         return HealResult("GAVE_UP", current, rounds)

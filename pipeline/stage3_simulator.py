@@ -20,7 +20,7 @@ from pylabrobot.liquid_handling.backends import LiquidHandlerChatterboxBackend
 from pylabrobot.resources import set_tip_tracking, set_volume_tracking
 
 from pipeline import diagnostics
-from pipeline.deck import build_deck
+from pipeline.deck import build_deck, machines
 
 MODULE_FILENAME = "<plr_module>"
 STEP_COMMENT = re.compile(r"#\s*step\s+(\d+)\b")
@@ -76,6 +76,8 @@ class PLRSimulator:
         log = io.StringIO()
         with contextlib.redirect_stdout(log):
             await lh.setup()
+            for machine in machines(res):
+                await machine.setup()
             try:
                 await run_protocol(lh, res)
             except Exception as exc:
@@ -90,6 +92,8 @@ class PLRSimulator:
                     log=log.getvalue(),
                 )
             finally:
+                for machine in machines(res):
+                    await machine.stop()
                 await lh.stop()
 
         state = diagnostics.capture_state(lh, res, self.deck_config, None)

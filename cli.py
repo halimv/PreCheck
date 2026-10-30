@@ -25,7 +25,7 @@ from pathlib import Path
 
 import yaml
 
-from pipeline.deck import load_deck_config
+from pipeline.deck import deck_config_for
 from pipeline.self_heal import OllamaBackend, SelfHealer, ir_diff
 from pipeline.stage2_compiler import compile_protocol
 from pipeline.stage4_visualizer import visualize_protocol
@@ -66,7 +66,7 @@ def main():
         protocol = yaml.safe_load(f)
     stem = Path(args.protocol).stem
     out_dir = Path(args.output) / stem
-    deck_config = load_deck_config(str(CONFIG_DIR / "plr_deck.json"))
+    deck_config = deck_config_for(protocol, Path(__file__).parent)
 
     healer = SelfHealer(
         deck_config=deck_config,

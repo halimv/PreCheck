@@ -38,6 +38,7 @@ class Verifier:
     - DRY_ASPIRATE: would violate minimum volume (includes dead volume)
     - VOLUMETRIC_OVERFLOW: would violate maximum volume
     - CONTAMINATED_TIP: attempting cross-contamination (different source well)
+    - TIPS_DURING_HOLD: incubate or shake while tips are mounted
     """
 
     def __init__(self, labware_path: str, plan_path: str, config_path: Optional[str] = None):
@@ -187,6 +188,42 @@ class Verifier:
                             code="DRY_ASPIRATE"
                         )
                     self.plate_state[ch][col_idx] -= vol
+
+        elif action == "empty":
+            # Removes everything in the column to waste, so no dead-volume rule; the tips touch
+            # the column's contents and count as having aspirated from it.
+            if col_idx is None:
+                raise SafetyGateError(f"Step {step_num}: empty requires a 'column' field.", code="VALIDATION_ERROR")
+            for ch in channels:
+                if not self.channel_mounted_tips[ch]:
+                    raise SafetyGateError(
+                        f"Step {step_num}: Channel {ch} attempted to empty a well without a mounted tip.",
+                        code="MISSING_TIP"
+                    )
+                current_source = self.tip_source_well[ch]
+                if current_source is not None and current_source != (labware, col_idx):
+                    raise SafetyGateError(
+                        f"Step {step_num}: Channel {ch} attempted to empty column {col_idx+1} with a tip that "
+                        f"aspirated from {current_source[0]} column {current_source[1]+1}. "
+                        "Use tips_off before switching sources.",
+                        code="CONTAMINATED_TIP"
+                    )
+                self.tip_source_well[ch] = (labware, col_idx)
+                if self._get_plate_specs(labware):
+                    self.plate_state[ch][col_idx] = 0.0
+
+        elif action in ("incubate", "shake"):
+            duration = step.get("duration_s")
+            if not isinstance(duration, (int, float)) or duration <= 0:
+                raise SafetyGateError(f"Step {step_num}: {action} requires 'duration_s' > 0.", code="VALIDATION_ERROR")
+            if action == "shake" and not isinstance(step.get("speed_rpm"), (int, float)):
+                raise SafetyGateError(f"Step {step_num}: shake requires 'speed_rpm'.", code="VALIDATION_ERROR")
+            if any(self.channel_mounted_tips):
+                raise SafetyGateError(
+                    f"Step {step_num}: {action} while tips are still mounted. Use tips_off first so used "
+                    "tips are not left hanging over the plate during the hold.",
+                    code="TIPS_DURING_HOLD"
+                )
 
         elif action == "dispense":
             if col_idx is None:

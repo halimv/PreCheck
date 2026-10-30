@@ -20,7 +20,7 @@ from pylabrobot.liquid_handling.backends import LiquidHandlerChatterboxBackend
 from pylabrobot.resources import set_tip_tracking, set_volume_tracking
 from pylabrobot.visualizer import Visualizer
 
-from pipeline.deck import build_deck
+from pipeline.deck import build_deck, machines
 from pipeline.stage2_compiler import compile_protocol
 
 
@@ -54,6 +54,8 @@ class VisualizerSession:
     async def stop(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             await self.visualizer.stop()
+            for machine in machines(self.resources):
+                await machine.stop()
             await self.lh.stop()
 
 
@@ -71,6 +73,8 @@ async def start_visualizer(
     visualizer = Visualizer(resource=lh, open_browser=open_browser, name=name or protocol.get("protocol_name"))
     with contextlib.redirect_stdout(io.StringIO()):  # hide ChatterBox's and the servers' printouts
         await lh.setup()
+        for machine in machines(resources):
+            await machine.setup()
         await visualizer.setup()
     return VisualizerSession(visualizer, lh, resources, f"http://{visualizer.host}:{visualizer.fs_port}")
 
