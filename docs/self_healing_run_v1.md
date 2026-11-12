@@ -41,7 +41,7 @@ Key result: **every run was safe.** Edits that changed the experiment, or protoc
 | Stage 3 simulator | `pipeline/stage3_simulator.py` | Runs the module in ChatterBox, maps any exception back to its IR step, snapshots the deck |
 | Diagnostic translator | `pipeline/diagnostics.py` | Turns PLR exceptions into lab-concept explanations and suggested IR edits |
 | Self-healing loop | `pipeline/self_heal.py` | Ollama backend, edit application, guardrails, round history |
-| CLI | `cli.py` | `python cli.py --protocol <IR> --heal` |
+| CLI | `pipeline.py` | `python pipeline.py --protocol <IR> --heal` |
 
 **What the model can do:** reply with JSON edits of two kinds:
 - `replace_step`: replace step N with one or more steps (edit, split, or delete it)
@@ -174,7 +174,7 @@ Output of `ir_diff` (original v1 vs healed). Unchanged steps are hidden, and ste
 
 In lab terms: **load 900 µL of stock instead of 600 µL, and draw it with one channel at a time instead of all eight together.** Every well still receives the same volumes as the original plan.
 
-**Independent re-check:** the healed IR was run through the pipeline again with no model involved (`python cli.py --protocol <healed IR>`):
+**Independent re-check:** the healed IR was run through the pipeline again with no model involved (`python pipeline.py --protocol <healed IR>`):
 
 ```
 [simulate] PASSED: All 75 steps ran in ChatterBox with tip and volume tracking.
@@ -216,13 +216,13 @@ I rewrote `ir_diff` in `pipeline/self_heal.py` to leave step numbers out of the 
 ollama pull qwen2.5-coder:7b
 
 # One pass through stages 1-3 (no model): shows the step 2 CHANNEL_SPACING diagnostic
-python cli.py --protocol protocols/serial_dilution_v1.json
+python pipeline.py --protocol protocols/serial_dilution_v1.json
 
 # Self-healing loop
-python cli.py --protocol protocols/serial_dilution_v1.json --heal
+python pipeline.py --protocol protocols/serial_dilution_v1.json --heal
 
 # Same, but the model sees only raw PLR exceptions
-python cli.py --protocol protocols/serial_dilution_v1.json --heal --feedback raw
+python pipeline.py --protocol protocols/serial_dilution_v1.json --heal --feedback raw
 ```
 
 Outputs go to `build/serial_dilution_v1/`: every round's IR (`round_N.json`) and compiled module (`round_N_plr.py`), `heal_log.json`, and on success `serial_dilution_v1_healed.json` plus the diff on screen.

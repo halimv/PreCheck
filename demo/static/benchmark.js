@@ -32,6 +32,34 @@ function scenes() {
 }
 
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+const pct = (x) => `${Math.round(x * 100)}%`;
+
+function median(xs) {
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0;
+}
+
+const repeatCount = (recs) => new Set(recs.map((r) => r.repeat || 0)).size;
+
+// Healed count per repeat: repeat k of every scene, as if the benchmark had been run once.
+function healedPerRepeat(recs, budget) {
+  const by = {};
+  for (const r of recs) by[r.repeat || 0] = (by[r.repeat || 0] || 0) + (scoreAt(r, budget).healed ? 1 : 0);
+  return Object.keys(by).sort((a, b) => a - b).map((k) => by[k]);
+}
+
+// 95% bootstrap interval for the heal rate: resample the scenes with replacement and average
+// their heal rates, many times. It says how much the rate depends on which scenes were picked.
+function healInterval(recs, budget) {
+  const byScene = {};
+  for (const r of recs) (byScene[r.scene] = byScene[r.scene] || []).push(scoreAt(r, budget).healed ? 1 : 0);
+  const rates = Object.values(byScene).map(mean);
+  if (rates.length < 2) return null;
+  let seed = 1;  // fixed seed, so the interval doesn't change on every render
+  const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const means = Array.from({ length: 4000 }, () => mean(rates.map(() => rates[Math.floor(rand() * rates.length)]))).sort((a, b) => a - b);
+  return [means[Math.floor(0.025 * means.length)], means[Math.floor(0.975 * means.length)]];
+}
 
 // ---------- summary cards ----------
 
@@ -43,15 +71,23 @@ function renderSummary() {
     const labels = {};
     for (const s of scored) if (s.failure_label) labels[s.failure_label] = (labels[s.failure_label] || 0) + 1;
     const tokens = mean(recs.map((r) => r.prompt_tokens + r.output_tokens));
+    const perRepeat = healedPerRepeat(recs, bench.budget);
+    const interval = healInterval(recs, bench.budget);
+    const sceneCount = new Set(recs.map((r) => r.scene)).size;
     return el("div", { class: "summary-card" },
       el("h3", { text: label(cond) }),
-      el("div", { class: "big" }, el("span", { text: `${healed}/${recs.length}` }), el("small", { text: " healed" })),
+      el("div", { class: "big" }, el("span", { text: `${healed}/${recs.length}` }),
+        el("small", { text: ` healed · ${pct(healed / recs.length)}` })),
       el("dl", { class: "kv" },
+        perRepeat.length > 1 ? el("dt", { text: "Per repeat" }) : null,
+        perRepeat.length > 1 ? el("dd", { text: `${perRepeat.join(", ")} of ${sceneCount}` }) : null,
+        interval ? el("dt", { text: "95% interval" }) : null,
+        interval ? el("dd", { text: `${pct(interval[0])}–${pct(interval[1])}`, title: "Bootstrap over scenes: see 'Reading the spread'" }) : null,
         el("dt", { text: "Mean score" }), el("dd", { text: mean(scored.map((s) => s.score)).toFixed(2) }),
         el("dt", { text: "Diagnosis" }), el("dd", { text: `${mean(scored.map((s) => s.diagnosis)).toFixed(2)} / 2` }),
         el("dt", { text: "Execution" }), el("dd", { text: `${mean(scored.map((s) => s.execution)).toFixed(2)} / 2` }),
         el("dt", { text: "Tokens / run" }), el("dd", { text: tokens ? Math.round(tokens).toLocaleString() : "–" }),
-        el("dt", { text: "Time / run" }), el("dd", { text: `${Math.round(mean(recs.map((r) => r.wall_seconds)))} s` }),
+        el("dt", { text: "Median time / run" }), el("dd", { text: `${Math.round(median(recs.map((r) => r.wall_seconds)))} s` }),
       ),
       Object.keys(labels).length
         ? el("p", { class: "labels" }, ...Object.entries(labels).map(([k, v]) => el("span", { class: "badge", text: `${k} ${v}` })))
@@ -76,7 +112,7 @@ function renderCurve() {
     const recs = bench.records.filter((r) => r.condition === cond);
     return el("tr", {}, el("th", { text: label(cond) }), ...bs.map((b) => {
       const healed = recs.filter((r) => scoreAt(r, b).healed).length;
-      return el("td", { class: b === bench.budget ? "current" : "", text: `${healed}/${recs.length}` });
+      return el("td", { class: b === bench.budget ? "current" : "", text: `${healed}/${recs.length} · ${pct(healed / recs.length)}` });
     }));
   });
   $("curve").replaceChildren(el("thead", {}, head), el("tbody", {}, ...rows));
@@ -90,6 +126,13 @@ function injectionText(rec) {
   return inj.note || "";
 }
 
+// A crash where the model never answered is the call timing out, not a failed repair.
+function outcome(rec, s) {
+  if (s.healed) return `healed · round ${s.healed_round}`;
+  if (s.failure_label === "CRASH" && /Timeout/.test(rec.error || "")) return "CRASH · model timed out";
+  return s.failure_label || rec.status;
+}
+
 function renderMatrix() {
   const conds = conditions();
   const head = el("tr", {}, el("th", { text: "Scene" }), ...conds.map((c) => el("th", { text: label(c) })));
@@ -98,14 +141,31 @@ function renderMatrix() {
     const cells = conds.map((cond) => {
       const recs = bench.records.filter((r) => r.scene === scene && r.condition === cond);
       if (!recs.length) return el("td", { text: "–" });
-      const s = scoreAt(recs[0], bench.budget);
-      const status = s.healed ? `healed · round ${s.healed_round}` : (s.failure_label || recs[0].status);
-      const button = el("button", { type: "button", class: `cell ${scoreClass(s.score)}` },
-        el("span", { class: "cell-score", text: String(s.score) }),
-        el("span", { class: "cell-status", text: status }));
-      if (bench.selected === recs[0]) button.classList.add("selected");
-      button.addEventListener("click", () => showDetail(recs[0]));
-      return el("td", {}, button);
+      if (recs.length === 1) {
+        const s = scoreAt(recs[0], bench.budget);
+        const button = el("button", { type: "button", class: `cell ${scoreClass(s.score)}` },
+          el("span", { class: "cell-score", text: String(s.score) }),
+          el("span", { class: "cell-status", text: outcome(recs[0], s) }));
+        if (bench.selected === recs[0]) button.classList.add("selected");
+        button.addEventListener("click", () => showDetail(recs[0]));
+        return el("td", {}, button);
+      }
+      // Repeats: how many healed, then one button per repeat.
+      const scored = recs.map((r) => scoreAt(r, bench.budget));
+      const healed = scored.filter((s) => s.healed).length;
+      const kind = healed === recs.length ? "s-good" : healed ? "s-mid" : "s-bad";
+      const dots = recs.map((r, i) => {
+        const s = scored[i];
+        const dot = el("button", { type: "button", class: `rep ${s.healed ? "s-good" : "s-bad"}`,
+          title: `Repeat ${(r.repeat || 0) + 1}: ${outcome(r, s)} · score ${s.score}`, text: String(s.score) });
+        if (bench.selected === r) dot.classList.add("selected");
+        dot.addEventListener("click", () => showDetail(r));
+        return dot;
+      });
+      return el("td", {}, el("div", { class: `cell reps ${kind}` },
+        el("span", { class: "cell-score", text: `${healed}/${recs.length}` }),
+        el("span", { class: "cell-status", text: `healed · mean score ${fmt(mean(scored.map((s) => s.score)))}` }),
+        el("span", { class: "rep-row" }, ...dots)));
     });
     return el("tr", {}, el("th", {}, el("div", { text: scene }), el("small", { class: "muted", text: injectionText(first) })), ...cells);
   });
@@ -166,15 +226,16 @@ function showDetail(rec, scroll = true) {
   const pills = CHECKPOINTS.map((c) => el("span", { class: `pill ${s[c] ? "on" : "off"}`, text: `${c} ${s[c] ? "✓" : "✕"}` }));
   if (!s.healed) pills.push(el("span", { class: "pill penalty", text: "−1 not healed" }));
 
+  const repeats = repeatCount(bench.records.filter((r) => r.scene === rec.scene && r.condition === rec.condition));
   const header = el("section", { class: "card result-card" },
-    el("header", {}, el("h3", { text: `${rec.scene} · ${label(rec.condition)}` }),
+    el("header", {}, el("h3", { text: `${rec.scene} · ${label(rec.condition)}${repeats > 1 ? ` · repeat ${(rec.repeat || 0) + 1} of ${repeats}` : ""}` }),
       el("span", { class: `chip ${s.healed ? "ok" : "bad"}`, text: `score ${s.score}` })),
     el("div", { class: "block" },
       el("p", { text: injectionText(rec) }),
       el("div", { class: "pills" }, ...pills),
       el("dl", { class: "kv" },
         el("dt", { text: "Budget scored" }), el("dd", { text: `${s.budget} round(s)` }),
-        el("dt", { text: "Outcome" }), el("dd", { text: s.healed ? `healed at round ${s.healed_round}` : (s.failure_label || rec.status) }),
+        el("dt", { text: "Outcome" }), el("dd", { text: outcome(rec, s) }),
         el("dt", { text: "Diagnosis / execution" }), el("dd", { text: `${s.diagnosis} / ${s.execution}` }),
         el("dt", { text: "Model" }), el("dd", { text: `${rec.model}${rec.temperature != null ? ` · temperature ${rec.temperature}` : ""}` }),
         el("dt", { text: "Feedback" }), el("dd", { text: rec.feedback }),
@@ -210,8 +271,10 @@ async function loadRun(id) {
   $("bench-chip").className = "chip ok";
   $("bench-chip").textContent = runLabel(id);
   const first = bench.records.find((r) => r.model && r.model !== "rule-based");
+  const repeats = repeatCount(bench.records.filter((r) => first && r.condition === first.condition));
   $("bench-text").textContent = `${bench.records.length} runs · ${scenes().length} scenes · ${conditions().length} conditions`
-    + (first ? ` · ${first.model}, temperature ${first.temperature}` : "");
+    + (first ? ` · ${first.model}, temperature ${first.temperature}` : "")
+    + (repeats > 1 ? ` · ${repeats} repeats per scene` : "");
   renderAll();
 }
 
@@ -222,7 +285,8 @@ async function init() {
     $("bench-note").textContent = "No results in build/benchmark/ yet.";
     return;
   }
-  select.replaceChildren(...runs.map((r) => el("option", { value: r.id, text: `${runLabel(r.id)} · ${r.runs} runs` })));
+  select.replaceChildren(...runs.map((r) => el("option", { value: r.id, text: [runLabel(r.id), `${r.runs} runs`,
+    r.temperature != null ? `temp ${r.temperature}` : null, r.repeats > 1 ? `×${r.repeats}` : null].filter(Boolean).join(" · ") })));
   select.addEventListener("change", () => loadRun(select.value));
   $("budget").addEventListener("change", () => {
     bench.budget = Number($("budget").value);

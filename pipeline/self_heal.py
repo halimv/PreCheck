@@ -18,7 +18,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from pipeline.stage1_verifier import Verifier
+from pipeline import proposals
+from pipeline.diagnostics import rejection_kind
 from pipeline.stage2_compiler import ACTIONS, CompilationError, compile_protocol, translate_step
 from pipeline.stage3_simulator import PLRSimulator
 
@@ -61,6 +62,26 @@ EDIT_SCHEMA = {
         },
     },
     "required": ["reasoning", "edits"],
+}
+
+# An escalated round's reply also carries a proposed change to the knowledge base (pipeline/proposals.py).
+PROPOSAL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "kind": {"type": "string", "enum": ["add_fix", "replace_fixes", "new_entry"]},
+        "fix": {"type": "string"},
+        "why": {"type": "string"},
+        "code": {"type": "string"},
+        "title": {"type": "string"},
+        "explanation": {"type": "string"},
+        "match_text": {"type": "string"},
+    },
+    "required": ["kind", "fix", "why"],
+}
+ESCALATION_SCHEMA = {
+    **EDIT_SCHEMA,
+    "properties": {**EDIT_SCHEMA["properties"], "knowledge_proposal": PROPOSAL_SCHEMA},
+    "required": ["reasoning", "edits", "knowledge_proposal"],
 }
 
 SYSTEM_PROMPT = """\
@@ -114,11 +135,11 @@ class OllamaBackend:
         self.host = host
         self.num_ctx = num_ctx
 
-    def propose_edits(self, system: str, prompt: str) -> Dict[str, Any]:
+    def propose_edits(self, system: str, prompt: str, schema: Dict[str, Any] = EDIT_SCHEMA) -> Dict[str, Any]:
         body = {
             "model": self.model,
             "stream": False,
-            "format": EDIT_SCHEMA,
+            "format": schema,
             "options": {"temperature": 0, "num_ctx": self.num_ctx},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
         }
@@ -132,7 +153,7 @@ class OllamaBackend:
 
 @dataclass
 class GateResult:
-    stage: str  # "verify", "compile" or "simulate"
+    stage: str  # "compile" or "simulate"
     passed: bool
     summary: str
     feedback: str = ""
@@ -150,6 +171,9 @@ class HealResult:
     status: str  # "HEALED", "ALREADY_PASSING" or "GAVE_UP"
     protocol: Dict[str, Any]
     rounds: List[Dict[str, Any]]
+    # Knowledge-base changes proposed in escalated rounds; those with no "problems" are ready
+    # for a person to review (store them with proposals.submit).
+    proposals: List[Dict[str, Any]] = field(default_factory=list)
 
 
 def _step_lines(protocol: Dict[str, Any]) -> List[str]:
@@ -237,16 +261,12 @@ class SelfHealer:
     def __init__(
         self,
         deck_config: Dict[str, Any],
-        labware_path: str,
-        protocol_defaults_path: str,
-        backend: OllamaBackend,
-        work_dir: str,
+        backend: Optional[OllamaBackend] = None,
+        work_dir: str = "build/heal",
         feedback_mode: str = "translated",
     ):
         self.deck_config = deck_config
         self.labware_kinds = {lid: spec["kind"] for lid, spec in deck_config["labware"].items()}
-        self.labware_path = labware_path
-        self.protocol_defaults_path = protocol_defaults_path
         self.backend = backend
         self.work_dir = Path(work_dir)
         self.work_dir.mkdir(parents=True, exist_ok=True)
@@ -254,14 +274,10 @@ class SelfHealer:
         self.simulator = PLRSimulator(deck_config)
 
     def evaluate(self, protocol: Dict[str, Any], round_num: int) -> GateResult:
-        """Run stages 1-3 on the IR, stopping at the first failure."""
+        """Compile and simulate the IR, stopping at the first failure. (The stage 1 verifier is out of the loop for
+        now: the simulator's failures are what the diagnostics, and so the repairs, are built on.)"""
         ir_path = self.work_dir / f"round_{round_num}.json"
         ir_path.write_text(json.dumps(protocol, indent=2))
-
-        verdict = Verifier(self.labware_path, str(ir_path), self.protocol_defaults_path).run_verification()
-        if verdict["status"] != "PASSED":
-            msg = f"Safety verifier rejected the protocol: {verdict['error_code']}: {verdict['message']}"
-            return GateResult("verify", False, msg, feedback=msg, step=_step_in(verdict["message"]), detail=verdict)
 
         try:
             code = compile_protocol(protocol, self.deck_config)
@@ -367,19 +383,63 @@ class SelfHealer:
         code = gate.detail.get("error_code", gate.stage)
         return f"- {code} (\"{gate.summary}\") was fixed: " + "; ".join(changes)
 
+    @staticmethod
+    def _escalation(gate: GateResult, repeats: int, tried: List[str]) -> str:
+        """Extra instructions for a failure that keeps coming back: reason past the knowledge base,
+        and propose a change to it."""
+        d = gate.detail
+        names = ", ".join("{" + n + "}" for n in proposals.placeholders_for(d.get("kb_entry")))
+        unrecognized = d.get("kb_entry") == proposals.UNRECOGNIZED
+        lines = [
+            f"This failure has come back {repeats} time(s) in a row ({d['error_code']} at step {gate.step}). "
+            "Nothing tried so far has resolved it, so think past the suggested fixes.",
+            f"Raw PyLabRobot error: {d['raw_error']}",
+            "Already tried for this failure:\n" + "\n".join(f"- {t}" for t in tried),
+            "Work out the physical cause yourself and propose edits that fix it. The harness rules still hold: "
+            f"edit only step {gate.step} and/or use set_initial_volume, and keep every channel's total aspirated "
+            "and dispensed volumes the same.",
+            "Also propose a change to the knowledge base in \"knowledge_proposal\", so the next protocol with this "
+            "failure is fixed the first time. A scientist reviews it before it is used.",
+            ('- kind: "new_entry" (this error has no entry yet).' if unrecognized else
+             '- kind: "add_fix" to add your fix to this error\'s suggestions, or "replace_fixes" if the current '
+             "suggestions are wrong."),
+            "- fix: the fix in general terms, for any protocol with this failure. You may use these placeholders, "
+            f"which are filled in when the error happens: {names}.",
+            "- why: one or two sentences for the scientist: why the current suggestions did not work and why this does.",
+        ]
+        if unrecognized:
+            lines.append("- code (UPPER_SNAKE_CASE), title, explanation (what went wrong, in lab terms), and "
+                         "match_text: a short piece of the raw error message that identifies this error.")
+        return "\n".join(lines)
+
     def heal(
         self,
         protocol: Dict[str, Any],
         max_rounds: int = 5,
         on_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        escalate_after: Optional[int] = None,
     ) -> HealResult:
         """Run the repair loop. `on_event(kind, data)`, if given, is called as each round progresses:
-        "gate" (stages 1-3 result), "model_request", "model_reply" and "edits" (accepted or rejected)."""
+        "gate" (stages 1-3 result), "escalate", "model_request", "model_reply" and "edits" (accepted
+        or rejected).
+
+        With `escalate_after=k`, a simulator failure that comes back k times in a row (same
+        knowledge-base entry, same step) is escalated: the model is told the knowledge base's
+        suggestions have not worked, asked to reason past them, and asked to propose a change to
+        the knowledge base (HealResult.proposals). None never escalates (the benchmark default)."""
         emit = on_event or (lambda kind, data: None)
         current = copy.deepcopy(protocol)
         rounds: List[Dict[str, Any]] = []
         history: List[str] = []
         rejection = ""
+        policy = f"escalate after {escalate_after} repeat(s)" if escalate_after is not None else "never escalate"
+        previous: Optional[Tuple] = None  # (entry, step) of the last round's simulator failure
+        repeats = 0
+        tried: Dict[Tuple, List[str]] = {}  # what was attempted for each failure, for an escalated prompt
+
+        def finish(status: str) -> HealResult:
+            return HealResult(status, current, rounds, proposals.collect(rounds, status))
+
         # Intent guard: a repair may restructure steps, but every channel must still move the same
         # total volume from and to the same places as in the original plan.
         baseline = self._transfers(protocol)
@@ -392,8 +452,14 @@ class SelfHealer:
             gate.feedback += rejection
             rejection = ""
             record: Dict[str, Any] = {"round": round_num, "stage": gate.stage, "passed": gate.passed, "result": gate.summary}
-            if gate.detail.get("kb_entry"):  # the knowledge-base entry that explained this failure
-                record.update(kb_entry=gate.detail["kb_entry"], step=gate.step, raw_error=gate.detail["raw_error"])
+            failure = (gate.detail["kb_entry"], gate.step) if gate.detail.get("kb_entry") else None
+            repeats = repeats + 1 if failure is not None and failure == previous else 0
+            if failure:  # the knowledge-base entry that explained this failure
+                record.update(kb_entry=gate.detail["kb_entry"], step=gate.step, raw_error=gate.detail["raw_error"],
+                              match=gate.detail.get("match", {}), fields=gate.detail.get("fields", {}), repeats=repeats)
+                if repeats:
+                    record["previous_rejections"] = sorted({rejection_kind(e) for e in rounds[-1].get("edit_errors", [])})
+            previous = failure
             rounds.append(record)
             print(f"  round {round_num}: {gate.stage} {'PASSED' if gate.passed else 'FAILED'} - {gate.summary}")
             emit("gate", {
@@ -402,15 +468,27 @@ class SelfHealer:
                 **{k: gate.detail.get(k) for k in ("error_code", "explanation", "suggested_fixes", "raw_error")},
             })
             if gate.passed:
-                return HealResult("ALREADY_PASSING" if round_num == 0 else "HEALED", current, rounds)
+                return finish("ALREADY_PASSING" if round_num == 0 else "HEALED")
             if round_num == max_rounds:
                 break
 
-            emit("model_request", {"round": round_num, "model": getattr(self.backend, "model", "")})
-            reply = self.backend.propose_edits(system, self._prompt(current, gate, history))
+            escalated = escalate_after is not None and failure is not None and repeats >= escalate_after
+            record.update(mode="escalated" if escalated else "knowledge_base", policy=policy)
+            prompt = self._prompt(current, gate, history)
+            if escalated:
+                emit("escalate", {"round": round_num, "kb_entry": failure[0], "code": gate.detail["error_code"],
+                                  "step": gate.step, "repeats": repeats})
+                prompt += "\n\n" + self._escalation(gate, repeats, tried.get(failure, []))
+            emit("model_request", {"round": round_num, "model": getattr(self.backend, "model", ""), "escalated": escalated})
+            if escalated:
+                reply = self.backend.propose_edits(system, prompt, schema=ESCALATION_SCHEMA)
+                record["knowledge_proposal"] = reply.get("knowledge_proposal")
+            else:
+                reply = self.backend.propose_edits(system, prompt)
             record["model_reasoning"] = reply.get("reasoning", "")
             record["edits"] = reply.get("edits", [])
-            emit("model_reply", {"round": round_num, "reasoning": record["model_reasoning"], "edits": record["edits"]})
+            emit("model_reply", {"round": round_num, "reasoning": record["model_reasoning"], "edits": record["edits"],
+                                 "knowledge_proposal": record.get("knowledge_proposal")})
             print(f"    model: {record['model_reasoning'][:300]}")
             # Each edit that passes its own checks is kept, so one bad edit doesn't sink a correct one
             # sent with it. Only replace_step can change the experiment, so on an intent violation
@@ -432,9 +510,15 @@ class SelfHealer:
                 print(f"    edits rejected: {errors}")
                 emit("edits", {"round": round_num, "accepted": False, "errors": errors})
                 rejection = "\nYour previous attempt was rejected: " + "; ".join(errors)
+                if failure:
+                    tried.setdefault(failure, []).append(f"round {round_num}: rejected by the harness: " + "; ".join(errors))
                 continue
             record["edits_applied"] = applied
             description = self._describe(gate, applied_edits)[2:]
+            if failure:
+                tried.setdefault(failure, []).append(
+                    f"round {round_num}: applied ({description.rsplit(' was fixed: ', 1)[-1]})"
+                    + (f"; also rejected: {'; '.join(errors)}" if errors else ""))
             print(f"    applied: {description}" + (f"; rejected: {errors}" if errors else ""))
             emit("edits", {"round": round_num, "accepted": True, "description": description,
                            "applied": applied, "errors": errors, "step_count": len(updated["steps"])})
@@ -444,7 +528,7 @@ class SelfHealer:
             history.append(self._describe(gate, applied_edits))
             current = updated
 
-        return HealResult("GAVE_UP", current, rounds)
+        return finish("GAVE_UP")
 
 
 def ir_diff(before: Dict[str, Any], after: Dict[str, Any]) -> str:

@@ -1,7 +1,7 @@
 // Self-healing demo page: starts a run, renders its event stream as round cards,
 // and opens PyLabRobot's visualizer for the passing protocol.
 
-const STAGES = [["verify", "Verifier"], ["compile", "Compiler"], ["simulate", "Simulator"]];
+const STAGES = [["compile", "Compiler"], ["simulate", "Simulator"]];  // the verifier is out of the loop for now
 
 const $ = (id) => document.getElementById(id);
 const state = { protocols: [], runId: null, source: null, timer: null, startedAt: 0, rounds: {} };
@@ -109,6 +109,14 @@ function onGate(gate) {
   setStatus("running", "Running", `Round ${gate.round}: ${code}${where ? " at " + where : ""}`);
 }
 
+function onEscalate(e) {
+  const card = roundCard(e.round);
+  card.append(el("div", { class: "block verdict partial" },
+    el("strong", { text: "Same failure again. " }),
+    el("span", { text: `${e.code} at step ${e.step} has come back ${e.repeats} time(s) in a row, so the model is asked to reason past the knowledge base's suggestions and propose a change to it.` })));
+  setStatus("running", "Running", `Round ${e.round}: escalating ${e.code}`);
+}
+
 function onModelRequest(req) {
   const card = roundCard(req.round);
   const block = el("div", { class: "block model" }, el("h4", { text: "Model" }),
@@ -127,6 +135,14 @@ function onModelReply(reply) {
     el("p", { class: "reasoning", text: reply.reasoning || "(no reasoning given)" }),
     edits.length ? el("ul", { class: "edits" }, ...edits.map(renderEdit)) : el("p", { class: "muted", text: "No edits proposed." }),
   );
+  if (reply.knowledge_proposal) {
+    const p = reply.knowledge_proposal;
+    block.append(el("h4", { class: "lib-h4", text: "Proposed change to the knowledge base (kept only if this fix works)" }),
+      el("dl", { class: "kv" },
+        el("dt", { text: "Kind" }), el("dd", { text: p.kind }),
+        el("dt", { text: "Fix" }), el("dd", { text: p.fix || "" }),
+        el("dt", { text: "Why" }), el("dd", { text: p.why || "" })));
+  }
 }
 
 function onEdits(verdict) {
@@ -214,6 +230,16 @@ function onDone(done) {
     body.append(actions);
   }
   card.append(body);
+  const pending = done.proposals || [];
+  const notKept = done.proposals_not_kept || [];
+  if (pending.length || notKept.length) {
+    const block = el("div", { class: "block" }, el("h4", { text: "Knowledge-base proposals" }));
+    if (pending.length) {
+      block.append(el("p", { text: "The model's fix healed the protocol. Approve to add its proposal to knowledge/diagnostics.json, so future runs get this suggestion; you can also review it later on the Library page." }));
+    }
+    for (const p of [...pending, ...notKept]) block.append(proposalView(p, () => {}));
+    card.append(block);
+  }
   $("timeline").append(card);
   card.scrollIntoView({ behavior: "smooth", block: "end" });
 
@@ -249,6 +275,7 @@ async function startRun(event) {
     model: $("model").value,
     feedback: document.querySelector("input[name=feedback]:checked").value,
     max_rounds: Number($("max-rounds").value) || 5,
+    escalate: $("escalate").checked,
   };
   const res = await fetch("/api/runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const reply = await res.json();
@@ -265,6 +292,7 @@ async function startRun(event) {
   const on = (kind, handler) => source.addEventListener(kind, (e) => handler(JSON.parse(e.data).data));
   on("start", (s) => setStatus("running", "Running", `${s.protocol_file}: ${s.step_count} steps, model ${s.model}`));
   on("gate", onGate);
+  on("escalate", onEscalate);
   on("model_request", onModelRequest);
   on("model_reply", onModelReply);
   on("edits", onEdits);

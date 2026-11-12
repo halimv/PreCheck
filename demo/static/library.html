@@ -12,7 +12,7 @@
       <div class="brand">
         <h1>Self-healing protocol demo</h1>
         <p>Hamilton STARlet · PyLabRobot · local model</p>
-        <nav class="nav"><a href="/">Live run</a><a href="/benchmark">Benchmark results</a><a class="active" href="/library">Library</a></nav>
+        <nav class="nav"><a href="/">Live run</a><a href="/benchmark">Benchmark results</a><a class="active" href="/library">Library</a><a href="/execute">Execute</a></nav>
       </div>
 
       <div class="panel">
@@ -29,9 +29,11 @@
 
       <section class="panel legend" id="side-labware">
         <h2>Where this comes from</h2>
-        <p><code>config/labware.json</code> is the lab's inventory: specifications the verifier checks volumes against.</p>
-        <p><code>config/plr_deck*.json</code> are deck layouts: where each labware ID sits on the STARlet and which
-          PyLabRobot resource stands in for it. A protocol picks its deck with <code>deck_config</code>.</p>
+        <p>The real deck is VENUS ground truth: <code>config/instrument/ahc_deck.lay</code> built from VENUS's labware
+          library (<code>config/Labware</code>, typed by <code>config/venus_labware.json</code>), with plate limits from
+          its geometry and <code>config/precheck_policy.json</code>.</p>
+        <p>Shown here is the <strong>reference simulation deck</strong> (<code>config/reference/</code>): the
+          hand-written labware and decks the benchmark and the tests use. It is not the lab's; nothing runs on it on the robot.</p>
         <p>Read-only here; edit the files and reload.</p>
       </section>
 

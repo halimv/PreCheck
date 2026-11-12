@@ -39,7 +39,7 @@ Results go to `build/benchmark/<timestamp>/`: `runs.jsonl` (one record per run, 
 
 ### 1.1 The unmodified v1 does not pass the simulator
 
-Running `python cli.py --protocol protocols/serial_dilution_v1.json` fails at step 2 with `CHANNEL_SPACING`. The 17 mm tube cannot take 8 channels at once. The reference for healing is therefore the healed IR in [self_healing_run_v1.md](self_healing_run_v1.md), not v1 as written.
+Running `python pipeline.py --protocol protocols/serial_dilution_v1.json` fails at step 2 with `CHANNEL_SPACING`. The 17 mm tube cannot take 8 channels at once. The reference for healing is therefore the healed IR in [self_healing_run_v1.md](self_healing_run_v1.md), not v1 as written.
 
 The healed IR (75 steps) splits step 2 into 8 single-channel aspirates and sets `tube_15ml` to 900 µL. Its ground-truth fix is the one the benchmark scores against.
 

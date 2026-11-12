@@ -7,7 +7,7 @@ before any code is compiled or executed.
 import yaml
 import json
 import os
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class SafetyGateError(ValueError):
@@ -22,7 +22,8 @@ class Verifier:
     Precheck safety gate for liquid handling protocols.
 
     Enforces:
-    - Volume limits: Per-labware specs (min/max from labware.json)
+    - Volume limits: per-plate min/max (pipeline/labware_limits.py: the deck's geometry and
+      config/precheck_policy.json; a reference deck's fixed limits file), each plate tracked on its own
     - Tip management: 96-tip rack, 8-channel head, per-rack per-channel tracking
     - Contamination prevention: Smart tracking of source wells per channel
       * Tips can be reused for same source well (serial dilution pattern)
@@ -41,9 +42,13 @@ class Verifier:
     - TIPS_DURING_HOLD: incubate or shake while tips are mounted
     """
 
-    def __init__(self, labware_path: str, plan_path: str, config_path: Optional[str] = None):
-        with open(labware_path, "r") as f:
-            self.labware_lib = json.load(f)
+    def __init__(self, labware: Union[str, Dict[str, Any]], plan_path: str, config_path: Optional[str] = None):
+        """`labware` is the limits (pipeline/labware_limits.py) or a path to a limits file."""
+        if isinstance(labware, dict):
+            self.labware_lib = labware
+        else:
+            with open(labware, "r") as f:
+                self.labware_lib = json.load(f)
         with open(plan_path, "r") as f:
             self.plan = yaml.safe_load(f)
 
@@ -67,12 +72,8 @@ class Verifier:
         """Initialize hardware state from protocol_config or safe defaults."""
         initial_state = self.protocol_config.get("initial_state", {})
 
-        # Plate state: 8 rows x 12 columns (volume in uL)
-        plate_config = initial_state.get("plate", {})
-        if plate_config.get("wells_volume_ul") == "empty":
-            self.plate_state = [[0.0 for _ in range(12)] for _ in range(8)]
-        else:
-            self.plate_state = [[0.0 for _ in range(12)] for _ in range(8)]  # Default to empty
+        # Plate state per plate: {plate: 8 rows x 12 columns (volume in uL)}; every plate starts empty.
+        self.plate_state: Dict[str, List[List[float]]] = {}
 
         # Tip rack state per labware: {rack_name: 8 rows x 12 columns}
         # (True = tip present, False = used/depleted). Racks are created on first use.
@@ -104,8 +105,11 @@ class Verifier:
                 "message": str(e)
             }
 
+    def _wells(self, labware: str) -> List[List[float]]:
+        return self.plate_state.setdefault(labware, [[0.0 for _ in range(12)] for _ in range(8)])
+
     def _get_plate_specs(self, labware: Optional[str]) -> Dict[str, Any]:
-        """Get volume specs from labware.json for given labware."""
+        """The volume limits of a plate, or {} for anything that is not a plate."""
         if labware in self.labware_lib.get("plates", {}):
             return self.labware_lib["plates"][labware]["well_specifications"]["well_volume_range"]
         return {}
@@ -175,11 +179,11 @@ class Verifier:
                 # Record this as the source well for this channel
                 self.tip_source_well[ch] = source_well
 
-                # 3. Volumetric check (read specs from labware.json)
+                # 3. Volumetric check against the plate's limits
                 plate_specs = self._get_plate_specs(labware)
                 if plate_specs:
                     min_vol = plate_specs["min_ul"]
-                    current_vol = self.plate_state[ch][col_idx]
+                    current_vol = self._wells(labware)[ch][col_idx]
 
                     if current_vol - vol < min_vol:
                         raise SafetyGateError(
@@ -187,7 +191,7 @@ class Verifier:
                             f"Current: {current_vol}uL, requested aspirate: {vol}uL (min accessible: {min_vol}uL from {labware}).",
                             code="DRY_ASPIRATE"
                         )
-                    self.plate_state[ch][col_idx] -= vol
+                    self._wells(labware)[ch][col_idx] -= vol
 
         elif action == "empty":
             # Removes everything in the column to waste, so no dead-volume rule; the tips touch
@@ -210,7 +214,7 @@ class Verifier:
                     )
                 self.tip_source_well[ch] = (labware, col_idx)
                 if self._get_plate_specs(labware):
-                    self.plate_state[ch][col_idx] = 0.0
+                    self._wells(labware)[ch][col_idx] = 0.0
 
         elif action in ("incubate", "shake"):
             duration = step.get("duration_s")
@@ -243,11 +247,11 @@ class Verifier:
                         code="MISSING_TIP"
                     )
 
-                # 2. Volumetric check (read specs from labware.json)
+                # 2. Volumetric check against the plate's limits
                 plate_specs = self._get_plate_specs(labware)
                 if plate_specs:
                     max_vol = plate_specs["max_ul"]
-                    current_vol = self.plate_state[ch][col_idx]
+                    current_vol = self._wells(labware)[ch][col_idx]
 
                     if current_vol + vol > max_vol:
                         raise SafetyGateError(
@@ -255,4 +259,4 @@ class Verifier:
                             f"Current: {current_vol}uL + {vol}uL exceeds max usable capacity ({max_vol}uL from {labware}).",
                             code="VOLUMETRIC_OVERFLOW"
                         )
-                    self.plate_state[ch][col_idx] += vol
+                    self._wells(labware)[ch][col_idx] += vol

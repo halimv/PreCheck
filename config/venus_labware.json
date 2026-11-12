@@ -1,0 +1,97 @@
+{
+  "description": "VENUS labware type -> how decks build it. The VENUS type is a definition's file name without extension (ML_STAR\\STF_L.rck -> STF_L); `venus` is that definition in VENUS's library (config/Labware). `factory` is the matching PyLabRobot factory, if PyLabRobot has one. `build` says which geometry decks use: \"plr\" (PyLabRobot's factory) or \"venus\" (built from the VENUS definition by pipeline/venus_labware.py). VENUS's definitions are what the lab's runs on this STARlet use, so they are the reference: a type is built from PyLabRobot only while PyLabRobot's factory matches VENUS's within 0.15 mm, which pipeline/venus_labware.check_map verifies when this file loads. Tip racks stay \"plr\": a .rck holds the rack, not the tip PyLabRobot needs to pipette. Add a type with its VENUS file and let check_map tell you whether PyLabRobot agrees.",
+  "decks": {
+    "ML_Starlet.dck": "STARLetDeck"
+  },
+  "ignore": {
+    "types": [
+      "WasteBlock",
+      "teachingneedleblock",
+      "waste2",
+      "verification",
+      "TeachingNeedle5ml",
+      "Core96SlideWaste",
+      "core96slidewaste"
+    ],
+    "note": "Fixed parts of the instrument (config/ML_Starlet.tpl: waste block, teaching needles, verification blocks, 96 head slide waste). PyLabRobot's deck already has the tip waste; pipeline/instrument.py checks it and the 96 head's eject position against the template."
+  },
+  "labware": {
+    "TIP_CAR_480_A00": {
+      "factory": "TIP_CAR_480_A00",
+      "venus": "ML_STAR/TIP_CAR_480_A00.tml",
+      "kind": "carrier",
+      "build": "plr",
+      "note": "PyLabRobot's sites match VENUS's."
+    },
+    "PLT_CAR_L5AC_A00": {
+      "factory": "PLT_CAR_L5AC_A00",
+      "venus": "ML_STAR/PLT_CAR_L5AC_A00.tml",
+      "kind": "carrier",
+      "build": "plr",
+      "note": "PyLabRobot's sites match VENUS's."
+    },
+    "PLT_CAR_L5_DWP": {
+      "factory": "PLT_CAR_L5_DWP",
+      "venus": "ML_STAR/PLT_CAR_L5_DWP.tml",
+      "kind": "carrier",
+      "build": "venus",
+      "note": "PyLabRobot's sites are 0.8-0.9 mm further front and 0.33 mm higher than VENUS's (checked 2026-11-12), so decks use VENUS's."
+    },
+    "STF_L": {
+      "factory": "hamilton_96_tiprack_300uL_filter",
+      "venus": "ML_STAR/STF_L.rck",
+      "kind": "tip_rack",
+      "build": "plr",
+      "note": "Hamilton 300 uL standard-volume filter tips. Footprint and A1 match VENUS."
+    },
+    "ST_L": {
+      "factory": "hamilton_96_tiprack_300uL",
+      "venus": "ML_STAR/ST_L.rck",
+      "kind": "tip_rack",
+      "build": "plr",
+      "note": "Hamilton 300 uL standard-volume tips, no filter. Footprint and A1 match VENUS (checked 2026-11-12)."
+    },
+    "HTF_L": {
+      "factory": "hamilton_96_tiprack_1000uL_filter",
+      "venus": "ML_STAR/HTF_L.rck",
+      "kind": "tip_rack",
+      "build": "plr",
+      "note": "Hamilton 1000 uL high-volume filter tips. Footprint and A1 match VENUS (checked 2026-11-12)."
+    },
+    "HT_L": {
+      "factory": "hamilton_96_tiprack_1000uL",
+      "venus": "ML_STAR/HT_L.rck",
+      "kind": "tip_rack",
+      "build": "plr",
+      "note": "Hamilton 1000 uL high-volume tips, no filter. Footprint and A1 match VENUS (checked 2026-11-12)."
+    },
+    "LTF_L": {
+      "factory": "hamilton_96_tiprack_10uL_filter",
+      "venus": "ML_STAR/LTF_L.rck",
+      "kind": "tip_rack",
+      "build": "plr",
+      "note": "Hamilton 10 uL low-volume filter tips. Footprint and A1 match VENUS (checked 2026-11-12)."
+    },
+    "LT_L": {
+      "factory": "hamilton_96_tiprack_10uL",
+      "venus": "ML_STAR/LT_L.rck",
+      "kind": "tip_rack",
+      "build": "plr",
+      "note": "Hamilton 10 uL low-volume tips, no filter. Footprint and A1 match VENUS (checked 2026-11-12)."
+    },
+    "TIP_50ulF_L": {
+      "factory": "hamilton_96_tiprack_50uL_filter",
+      "venus": "ML_STAR/TIP_50ulF_L.rck",
+      "kind": "tip_rack",
+      "build": "plr",
+      "note": "Hamilton 50 uL filter tips. Footprint and A1 match VENUS (checked 2026-11-12)."
+    },
+    "Cos_96_PCR": {
+      "factory": null,
+      "venus": "CORNING-COSTAR/Cos_96_PCR.rck",
+      "kind": "plate",
+      "build": "venus",
+      "note": "Corning Costar 96-well PCR plate. PyLabRobot 0.2.2 has no definition; built from VENUS's (127 x 86 x 22.5 mm, wells 20.5 mm deep, 289.7 uL by VENUS's volume equations)."
+    }
+  }
+}

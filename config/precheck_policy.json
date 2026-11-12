@@ -1,0 +1,8 @@
+{
+  "description": "Precheck's rules that are choices, not measurements. What labware holds comes from the deck's own geometry: VENUS's definitions in config/Labware (capacity from VENUS's volume equations). These numbers decide how close to those limits a protocol may go, and they are the lab's to set. The defaults are carried over from the earlier stand-in labware.json (30 uL dead volume; 330 of 360 uL usable, about 0.9): review them with the scientist for each plate type.",
+  "plates": {
+    "dead_volume_ul": 30,
+    "max_fill_fraction": 0.9,
+    "by_type": {}
+  }
+}

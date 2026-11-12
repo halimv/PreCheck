@@ -15,8 +15,8 @@ import io
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from pylabrobot.liquid_handling import LiquidHandler
-from pylabrobot.liquid_handling.backends import LiquidHandlerChatterboxBackend
+from pylabrobot.legacy.liquid_handling import LiquidHandler
+from pylabrobot.legacy.liquid_handling.backends import LiquidHandlerChatterboxBackend
 from pylabrobot.resources import set_tip_tracking, set_volume_tracking
 from pylabrobot.visualizer import Visualizer
 

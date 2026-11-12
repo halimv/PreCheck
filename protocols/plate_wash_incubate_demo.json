@@ -3,7 +3,7 @@
   "version": "1.0",
   "description": "Small ELISA-style sequence on two columns: coat with 100 uL, incubate 1 h at 37 C, remove to waste, then two washes of 200 uL buffer with 30 s shaking, and a 30 min room-temperature rest. Exercises empty, incubate and shake. Uses config/plr_deck_plate_assay.json.",
   "provenance": "Zero-shot draft by Claude (claude-opus-5-5), written before running it through the pipeline and left uncorrected. Known-bad input for the self-healing loop: Stage 3 fails at step 28 (wash buffer loaded at 4000 uL, 6400 uL needed). Don't overwrite; repairs go to build/.",
-  "deck_config": "config/plr_deck_plate_assay.json",
+  "deck_config": "config/reference/plr_deck_plate_assay.json",
   "initial_volumes_ul": {
     "reservoir_50ml": 2000,
     "wash_buffer_trough": 4000

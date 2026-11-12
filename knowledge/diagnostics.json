@@ -51,7 +51,34 @@
       "fixes": [
         "Replace step {n} with {n_channels} steps of the same action, each using a single channel (channels [0], then [1], ... [{last_channel}]) and the same labware and volume_ul.",
         "Or move this reagent to a container wide enough for 8 channels (a trough), if one is on the deck."
-      ]
+      ],
+      "observed": {
+        "seen": 1,
+        "repair_attempts": 1,
+        "resolved": 1,
+        "resolved_by": {
+          "replace_step": 1
+        },
+        "rejected": {},
+        "protocols": [
+          "serial_1_10_dilution_of_culture_in_0_9_saline_20261106-132529.json"
+        ],
+        "models": [
+          "qwen2.5-coder:7b"
+        ],
+        "first_seen": "2026-11-06",
+        "last_seen": "2026-11-06",
+        "examples": [
+          {
+            "date": "2026-11-06",
+            "protocol": "serial_1_10_dilution_of_culture_in_0_9_saline_20261106-132529.json",
+            "model": "qwen2.5-coder:7b",
+            "step": 20,
+            "raw_error": "ValueError: Resource is too small to space channels.",
+            "outcome": "resolved by replace_step"
+          }
+        ]
+      }
     },
     {
       "id": "insufficient_liquid.loaded_reagent",

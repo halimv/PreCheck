@@ -1,0 +1,8 @@
+{
+  "description": "The machine the STARlet's USB cable is plugged into (macOS never enumerates the STAR), reached over SSH by pipeline/remote.py. host is an SSH host (an alias from ~/.ssh/config works); dir, python and star_lock are relative to the remote home folder. star_lock is the lock file the AHC bridge uses, so the two never drive the instrument at the same time.",
+  "name": "Raspberry Pi",
+  "host": "raspi-as",
+  "dir": "llnl_capstone",
+  "python": ".venv/bin/python",
+  "star_lock": "ahc/.star-bridge/lock"
+}

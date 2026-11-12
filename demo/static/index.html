@@ -12,7 +12,7 @@
       <div class="brand">
         <h1>Self-healing protocol demo</h1>
         <p>Hamilton STARlet · PyLabRobot · local model</p>
-        <nav class="nav"><a class="active" href="/">Live run</a><a href="/benchmark">Benchmark results</a><a href="/library">Library</a></nav>
+        <nav class="nav"><a class="active" href="/">Live run</a><a href="/benchmark">Benchmark results</a><a href="/library">Library</a><a href="/execute">Execute</a></nav>
       </div>
 
       <form id="run-form" class="panel">
@@ -34,6 +34,8 @@
           <span>Maximum repair rounds</span>
           <input id="max-rounds" type="number" min="1" max="10" value="5">
         </label>
+        <label class="radio"><input id="escalate" type="checkbox" checked> If a failure repeats, let the model reason
+          past the knowledge base and propose an addition to it</label>
         <button id="start" type="submit" class="primary">Run self-healing</button>
       </form>
 
@@ -56,6 +58,8 @@
         <p>On a failure, the model proposes edits to the plan. The harness accepts them only if they fix
           the failing step without changing how much liquid is moved. A passing plan can then be replayed in
           PyLabRobot's own visualizer.</p>
+        <p>If the same failure comes back, the model is asked to think past the knowledge base's suggestions
+          and propose a change to it. A proposal whose fix healed the protocol waits for your approval.</p>
       </section>
     </aside>
 

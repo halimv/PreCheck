@@ -1,0 +1,829 @@
+{
+  "device": {
+    "serial_number": "F553",
+    "firmware_version": "7.6S 32 2024-11-22 (GRU C0)",
+    "firmware_date": "2024-11-22",
+    "pip_type_1000ul": true,
+    "kb_iswap_installed": true,
+    "main_front_cover_monitoring_installed": true,
+    "autoload_installed": true,
+    "wash_station_1_installed": false,
+    "wash_station_2_installed": false,
+    "temp_controlled_carrier_1_installed": false,
+    "temp_controlled_carrier_2_installed": false,
+    "num_pip_channels": 8,
+    "left_x_drive_large": true,
+    "head96_installed": true,
+    "right_x_drive_large": false,
+    "pump_station_1_installed": false,
+    "pump_station_2_installed": false,
+    "wash_station_1_type_cr": false,
+    "wash_station_2_type_cr": false,
+    "left_cover_installed": false,
+    "right_cover_installed": false,
+    "additional_front_cover_monitoring_installed": false,
+    "pump_station_3_installed": false,
+    "multi_channel_nano_pipettor_installed": false,
+    "head384_installed": false,
+    "xl_channels_installed": false,
+    "tube_gripper_installed": false,
+    "waste_direction_left": false,
+    "iswap_gripper_wide": true,
+    "additional_channel_nano_pipettor_installed": false,
+    "imaging_channel_installed": false,
+    "robotic_channel_installed": false,
+    "channel_order_ox_first": false,
+    "x0_interface_ham_can": false,
+    "park_heads_with_iswap_off": false,
+    "configuration_data_3": 0,
+    "instrument_size_slots": 30,
+    "autoload_size_slots": 30,
+    "tip_waste_x_position": 800.0,
+    "left_arm": {
+      "pip_installed": true,
+      "iswap_installed": true,
+      "head96_installed": true,
+      "nano_pipettor_installed": false,
+      "head384_installed": false,
+      "xl_channels_installed": false,
+      "tube_gripper_installed": false,
+      "imaging_channel_installed": false,
+      "robotic_channel_installed": false,
+      "gel_card_gripper_installed": false,
+      "puncher_handler_installed": false,
+      "width": 354.0,
+      "large": true,
+      "x_range": [
+        95.0,
+        800.7
+      ],
+      "workspace_x_range": [
+        -323.2,
+        977.7
+      ],
+      "wrap_size": 595.2,
+      "firmware_version": "1.4S 2012-04-25",
+      "x_mm_per_increment": 0.1,
+      "x_range_increments": [
+        0,
+        30000
+      ],
+      "acceleration_level_range": [
+        1,
+        5
+      ],
+      "acceleration_level_default": 4,
+      "current_limit_range": [
+        0,
+        7
+      ],
+      "current_limit_default": 7,
+      "large_arm_size_x": 400.49,
+      "large_arm_reference_from_left": 223.0
+    },
+    "right_arm": null,
+    "min_iswap_collision_free_position": 360.0,
+    "max_iswap_collision_free_position": 600.0,
+    "left_x_arm_width": 354.0,
+    "right_x_arm_width": 370.0,
+    "num_xl_channels": 0,
+    "num_robotic_channels": 0,
+    "min_raster_pitch_pip_channels": 9.0,
+    "min_raster_pitch_xl_channels": 36.0,
+    "min_raster_pitch_robotic_channels": 36.0,
+    "pip_maximal_y_position": 606.5,
+    "left_arm_min_y_position": 6.0,
+    "right_arm_min_y_position": 6.0
+  },
+  "arms": {
+    "left": {
+      "pipettes": {
+        "hardware_query_first_year": 2017,
+        "initialize_y_range": [
+          217.5,
+          405.0
+        ],
+        "initialize_begin_of_tip_deposit": 245.0,
+        "initialize_end_of_tip_deposit": 122.0,
+        "initialize_z_position_at_end": 360.0,
+        "initialize_tip_type": 4,
+        "initialize_discarding_method": 0,
+        "initialize_read_timeout": 120,
+        "x_reference_anchor": "c",
+        "y_reference_anchor": "c",
+        "z_reference_anchor": "b",
+        "y_drive_mm_per_increment": 0.046302083,
+        "z_drive_mm_per_increment": 0.01072765,
+        "z_range_increments": [
+          9320,
+          31200
+        ],
+        "y_range_increments": [
+          0,
+          13714
+        ],
+        "y_drive_speed_range_increments": [
+          20,
+          8000
+        ],
+        "y_drive_acceleration_level_range": [
+          1,
+          4
+        ],
+        "y_drive_current_limit_range": [
+          0,
+          7
+        ],
+        "clld_detection_edge_range": [
+          0,
+          1023
+        ],
+        "clld_detection_drop_range": [
+          0,
+          1023
+        ],
+        "lld_post_detection_distance_range_increments": [
+          0,
+          9999
+        ],
+        "lld_max_delta_range_increments": [
+          0,
+          9999
+        ],
+        "plld_detection_edge_range": [
+          0,
+          1023
+        ],
+        "plld_detection_drop_range": [
+          0,
+          1023
+        ],
+        "plld_foam_detection_drop_range": [
+          0,
+          1023
+        ],
+        "plld_foam_detection_edge_tolerance_range": [
+          0,
+          1023
+        ],
+        "plld_foam_ad_values_range": [
+          0,
+          4999
+        ],
+        "plld_foam_search_speed_range_increments": [
+          20,
+          13500
+        ],
+        "z_drive_speed_range_increments": [
+          20,
+          15000
+        ],
+        "z_drive_acceleration_range_increments": [
+          5,
+          150
+        ],
+        "z_drive_current_limit_range": [
+          0,
+          7
+        ],
+        "z_touch_pwm_range": [
+          0,
+          125
+        ],
+        "drive_parameters": {
+          "zv": 5,
+          "zr": 3,
+          "yv": 4,
+          "yr": 1
+        },
+        "z_range": [
+          99.98,
+          334.7
+        ],
+        "dispensing_drive_mm_per_increment": 0.002734375,
+        "dispensing_drive_uL_per_increment": 0.046876,
+        "dispensing_drive_speed_range_increments": [
+          20,
+          13500
+        ],
+        "dispensing_drive_acceleration_range_increments": [
+          1,
+          100
+        ],
+        "dispensing_drive_current_limit_range": [
+          0,
+          7
+        ],
+        "dispensing_drive_volume_range_increments": [
+          0,
+          26666
+        ],
+        "dispensing_drive_position_range_increments": [
+          -960,
+          26666
+        ],
+        "dispensing_drive_move_acceleration_range_increments": [
+          5,
+          600
+        ],
+        "blow_out_air_draw_range_increments": [
+          0,
+          9999
+        ],
+        "mechanical_clearance_steps_range": [
+          0,
+          999
+        ],
+        "pipetting_volume_range_increments": [
+          0,
+          12500
+        ],
+        "pipetting_speed_range_increments": [
+          4,
+          5000
+        ],
+        "pipetting_distance_range_increments": [
+          0,
+          3600
+        ],
+        "swap_speed_range_increments": [
+          3,
+          1600
+        ],
+        "transport_air_volume_range_increments": [
+          0,
+          500
+        ],
+        "blow_out_air_volume_range_increments": [
+          0,
+          9999
+        ],
+        "pre_wetting_volume_range_increments": [
+          0,
+          999
+        ],
+        "clot_detection_height_range_increments": [
+          0,
+          500
+        ],
+        "settling_time_range_increments": [
+          0,
+          99
+        ],
+        "mix_cycles_range": [
+          0,
+          99
+        ],
+        "mix_position_range_increments": [
+          0,
+          900
+        ],
+        "second_section_ratio_range_increments": [
+          0,
+          10000
+        ],
+        "lld_sensitivity_range": [
+          1,
+          4
+        ],
+        "z_touch_off_position_range_increments": [
+          0,
+          100
+        ],
+        "dual_lld_height_difference_range_increments": [
+          0,
+          99
+        ],
+        "limit_curve_index_range": [
+          0,
+          999
+        ],
+        "stop_back_volume_range_increments": [
+          0,
+          180
+        ],
+        "side_touch_off_distance_range_increments": [
+          0,
+          45
+        ],
+        "channel_size_z": 140.0,
+        "channels": [
+          {
+            "channel_type": "ML_STAR",
+            "head_type": "ML_STAR",
+            "stop_disc_type": "core_ii",
+            "pressure_adc": "Renesas_X9268",
+            "firmware_version": "4.0S l 2023-05-08",
+            "width": 17.97
+          },
+          {
+            "channel_type": "ML_STAR",
+            "head_type": "ML_STAR",
+            "stop_disc_type": "core_ii",
+            "pressure_adc": "Renesas_X9268",
+            "firmware_version": "4.0S l 2023-05-08",
+            "width": 17.97
+          },
+          {
+            "channel_type": "ML_STAR",
+            "head_type": "ML_STAR",
+            "stop_disc_type": "core_ii",
+            "pressure_adc": "Renesas_X9268",
+            "firmware_version": "4.0S l 2023-05-08",
+            "width": 17.97
+          },
+          {
+            "channel_type": "ML_STAR",
+            "head_type": "ML_STAR",
+            "stop_disc_type": "core_ii",
+            "pressure_adc": "Renesas_X9268",
+            "firmware_version": "4.0S l 2023-05-08",
+            "width": 17.97
+          },
+          {
+            "channel_type": "ML_STAR",
+            "head_type": "ML_STAR",
+            "stop_disc_type": "core_ii",
+            "pressure_adc": "Renesas_X9268",
+            "firmware_version": "4.0S l 2023-05-08",
+            "width": 17.97
+          },
+          {
+            "channel_type": "ML_STAR",
+            "head_type": "ML_STAR",
+            "stop_disc_type": "core_ii",
+            "pressure_adc": "Renesas_X9268",
+            "firmware_version": "4.0S l 2023-05-08",
+            "width": 17.97
+          },
+          {
+            "channel_type": "ML_STAR",
+            "head_type": "ML_STAR",
+            "stop_disc_type": "core_ii",
+            "pressure_adc": "Renesas_X9268",
+            "firmware_version": "4.0S l 2023-05-08",
+            "width": 17.97
+          },
+          {
+            "channel_type": "ML_STAR",
+            "head_type": "ML_STAR",
+            "stop_disc_type": "core_ii",
+            "pressure_adc": "Renesas_X9268",
+            "firmware_version": "4.0S l 2023-05-08",
+            "width": 17.97
+          }
+        ]
+      },
+      "head96": {
+        "module": "H0",
+        "retract_command": "EV",
+        "initialize_command": "EI",
+        "tip_presence_command": "QH",
+        "position_command": "QI",
+        "y_parameter": "yh",
+        "z_parameter": "za",
+        "z_end_parameter": "ze",
+        "x_offset_parameter": "kf",
+        "head_types": {
+          "0": "Low volume head",
+          "1": "High volume head",
+          "2": "96 head II",
+          "3": "96 head TADM"
+        },
+        "drive_parameters": {
+          "yv": 5,
+          "yr": 5,
+          "zv": 5,
+          "zr": 6,
+          "dv": 5,
+          "dr": 6,
+          "sv": 5,
+          "sr": 6
+        },
+        "first_documented_firmware_year": 2010,
+        "firmware_version": "5.0S m 2025-05-26 (H0 XE167)",
+        "firmware_date": "2025-05-26",
+        "x_offset": 365.9,
+        "channel_pitch": 9.0,
+        "channel_columns": 12,
+        "channel_rows": 8,
+        "body_size_z": 140.0,
+        "min_x_clear_of_left_side_panel": -100.0,
+        "min_tool_bottom_z": 99.98,
+        "supports_clot_monitoring_clld": false,
+        "head_type": "96 head II",
+        "tip_discard_location": null,
+        "z_range": [
+          180.5,
+          336.0
+        ],
+        "z_drive_mm_per_increment": 0.005,
+        "y_drive_mm_per_increment": 0.015625,
+        "y_drive_acceleration_mm_per_increment": 0.015625,
+        "z_drive_acceleration_mm_per_increment": 0.005,
+        "dispensing_drive_mm_per_increment": 0.001025641026,
+        "z_speed_range_increments": [
+          50,
+          20000
+        ],
+        "z_acceleration_range_increments": [
+          5000,
+          100000
+        ],
+        "predefined_y_position_origin": 0,
+        "predefined_z_position_origin": 0,
+        "predefined_y_slots": [
+          "home",
+          "predefined_1",
+          "predefined_2",
+          "predefined_3",
+          "predefined_4",
+          "predefined_5",
+          "predefined_6",
+          "predefined_7",
+          "predefined_8",
+          "predefined_9"
+        ],
+        "predefined_y_positions_increments": {
+          "home": 35485,
+          "predefined_1": 35000,
+          "predefined_2": 35000,
+          "predefined_3": 35000,
+          "predefined_4": 35000,
+          "predefined_5": 35000,
+          "predefined_6": 35000,
+          "predefined_7": 35000,
+          "predefined_8": 35000,
+          "predefined_9": 35000
+        },
+        "predefined_z_slots": [
+          "home",
+          "predefined_1",
+          "predefined_2",
+          "predefined_3",
+          "predefined_4",
+          "predefined_5",
+          "predefined_6",
+          "predefined_7",
+          "predefined_8",
+          "predefined_9"
+        ],
+        "predefined_z_positions_increments": {
+          "home": 67091,
+          "predefined_1": 67100,
+          "predefined_2": 67100,
+          "predefined_3": 67100,
+          "predefined_4": 67100,
+          "predefined_5": 67100,
+          "predefined_6": 67100,
+          "predefined_7": 67100,
+          "predefined_8": 67100,
+          "predefined_9": 67100
+        },
+        "traversal_z_position": 245.0,
+        "y_drive_current_limit_default": 15,
+        "z_drive_current_limit_default": 15,
+        "current_limit_range": [
+          0,
+          15
+        ],
+        "y_speed_default_increments": 25000,
+        "y_acceleration_default_increments": 35000,
+        "z_speed_default_increments": 17000,
+        "z_acceleration_default_increments": 80000,
+        "y_drive_speed_firmware_reported": 390.62,
+        "y_drive_acceleration_firmware_reported": 546.88,
+        "z_drive_speed_firmware_reported": 85.0,
+        "z_drive_acceleration_firmware_reported": 400.0,
+        "dispensing_drive_speed_firmware_reported": 261.1,
+        "dispensing_drive_acceleration_firmware_reported": 17406.84,
+        "squeezer_drive_speed_firmware_reported": 15.86,
+        "squeezer_drive_acceleration_firmware_reported": 62.6,
+        "stop_disc_type": "core_ii",
+        "instrument_type": "legacy",
+        "dispensing_drive_uL_per_increment": 0.019340933,
+        "squeezer_drive_mm_per_increment": 0.0002086672009,
+        "tip_command_y_range": [
+          108.0,
+          560.0
+        ],
+        "dispensing_drive_position_before_rack_pickup": 218.19,
+        "pipetting_volume_range_increments": [
+          0,
+          11500
+        ],
+        "pipetting_speed_range_increments": [
+          3,
+          5000
+        ],
+        "pipetting_distance_range_increments": [
+          0,
+          3425
+        ],
+        "immersion_depth_range_increments": [
+          0,
+          3600
+        ],
+        "surface_following_distance_range_increments": [
+          0,
+          990
+        ],
+        "swap_speed_range_increments": [
+          3,
+          1000
+        ],
+        "transport_air_volume_range_increments": [
+          0,
+          500
+        ],
+        "stop_back_volume_range_increments": [
+          0,
+          999
+        ],
+        "side_touch_off_distance_range_increments": [
+          0,
+          45
+        ],
+        "settling_time_range_increments": [
+          0,
+          99
+        ],
+        "mix_cycles_range": [
+          0,
+          99
+        ],
+        "second_section_ratio_range_increments": [
+          0,
+          10000
+        ],
+        "lld_sensitivity_range": [
+          1,
+          4
+        ],
+        "limit_curve_index_range": [
+          0,
+          999
+        ],
+        "y_increment_floor": 6528
+      },
+      "iswap": {
+        "module": "R0",
+        "firmware_version": "4.1S 2011-12-19",
+        "firmware_date": "2011-12-19",
+        "link_1_length": 137.8,
+        "tool_length": 137.7,
+        "elbow_x_offset": 32.3,
+        "elbow_predefined_y_positions_increments": {
+          "home": 9855,
+          "lower_limit": 7000,
+          "upper_limit": 9000,
+          "parking": 13574,
+          "pre_parking": 12900,
+          "extra_1": 9855,
+          "extra_2": 9855,
+          "extra_3": 9855,
+          "extra_4": 9855,
+          "extra_5": 9855
+        },
+        "elbow_predefined_z_positions_increments": {
+          "home": 25600,
+          "parking": 25400,
+          "extra_1": 24600,
+          "extra_2": 24600,
+          "extra_3": 24600,
+          "extra_4": 24600,
+          "extra_5": 24600,
+          "extra_6": 24600,
+          "extra_7": 24600,
+          "extra_8": 24600
+        },
+        "elbow_drive_predefined_increments": {
+          "home": 13000,
+          "left": -28992,
+          "front": 15,
+          "right": 29068,
+          "parking": 29500,
+          "extra_1": 29068,
+          "extra_2": 29068,
+          "extra_3": 29068,
+          "extra_4": 29068
+        },
+        "wrist_drive_predefined_increments": {
+          "home": -26577,
+          "right": -26577,
+          "straight": -8773,
+          "left": 9007,
+          "reverse": 26763,
+          "parking": -26577,
+          "extra_1": -26577,
+          "extra_2": -26577,
+          "extra_3": -26577
+        },
+        "gripper_drive_predefined_increments": {
+          "home": 13100,
+          "extra_1": 24120,
+          "closed": 12960,
+          "plate_type_1": 12780,
+          "plate_type_2": 13100,
+          "plate_type_3": 13100,
+          "plate_type_4": 13100,
+          "plate_type_5": 13100,
+          "plate_type_6": 13100,
+          "plate_type_7": 13100
+        },
+        "y_range_increments": [
+          0,
+          14000
+        ],
+        "y_mm_per_increment": 0.046302083,
+        "y_speed_range_increments": [
+          50,
+          8000
+        ],
+        "y_speed_default_increments": 4751,
+        "y_current_limit_default": 7,
+        "y_acceleration_level_default": 2,
+        "elbow_drive_diameter": 30.5,
+        "elbow_drive_safety_radius": 90.0,
+        "elbow_y_min": 246.02,
+        "elbow_drive_size_z": 120.0,
+        "z_range_increments": [
+          -187,
+          26661
+        ],
+        "z_mm_per_increment": 0.01072765,
+        "z_speed_range_increments": [
+          50,
+          15000
+        ],
+        "z_acceleration_range_increments": [
+          5,
+          999
+        ],
+        "z_speed_default_increments": 11000,
+        "z_acceleration_default_increments": 60,
+        "z_current_limit_default": 6,
+        "elbow_z_offset_above_finger": 13.0,
+        "elbow_range_increments": [
+          -30032,
+          30032
+        ],
+        "elbow_deg_per_increment": 0.00309619077,
+        "elbow_speed_range_increments": [
+          20,
+          75000
+        ],
+        "elbow_acceleration_range_increments": [
+          5,
+          200
+        ],
+        "elbow_speed_default_increments": 24223,
+        "elbow_acceleration_default_increments": 161,
+        "elbow_current_limit_default": 5,
+        "wrist_range_increments": [
+          -30000,
+          30000
+        ],
+        "wrist_deg_per_increment": 0.00507968798,
+        "wrist_speed_range_increments": [
+          20,
+          65000
+        ],
+        "wrist_acceleration_range_increments": [
+          5,
+          200
+        ],
+        "wrist_speed_default_increments": 19686,
+        "wrist_acceleration_default_increments": 143,
+        "wrist_current_limit_default": 5,
+        "gripper_range_increments": [
+          12780,
+          24120
+        ],
+        "gripper_mm_per_increment": 0.00554337,
+        "gripper_speed_range_increments": [
+          20,
+          9999
+        ],
+        "gripper_acceleration_range_increments": [
+          5,
+          150
+        ],
+        "gripper_current_limit_range": [
+          0,
+          15
+        ],
+        "gripper_speed_default_increments": 8659,
+        "gripper_acceleration_default_increments": 75,
+        "gripper_current_limit_default": 15,
+        "gripper_close_speed_default_increments": 5000,
+        "gripper_nudge_speed_default_increments": 2000,
+        "gripper_stop_trigger_default": 200,
+        "gripper_low_pass_filter_default": true,
+        "gripper_stop_band_range_increments": [
+          80,
+          1800
+        ],
+        "gripper_counter_drift_increments": 50
+      }
+    }
+  },
+  "autoload": {
+    "module": "I0",
+    "firmware_version": "3.4S f 2017-01-09",
+    "firmware_date": "2017-01-09",
+    "autoload_type": "1D barcode scanner",
+    "y_positions": {
+      "loading_tray": 0,
+      "carrier_identification": 1,
+      "deck": 2
+    },
+    "z_positions": {
+      "below": 0,
+      "above": 1
+    },
+    "scanner_rotations": {
+      "vertical": 0,
+      "horizontal": 1,
+      "undefined": 2
+    },
+    "barcode_reading_directions": {
+      "vertical": 0,
+      "horizontal": 1
+    },
+    "barcode_symbologies": {
+      "ISBT Standard": 1,
+      "Code 128 (Subset B and C)": 2,
+      "Code 39": 4,
+      "Codebar": 8,
+      "Code 2of5 Interleaved": 16,
+      "UPC A/E": 32,
+      "YESN/EAN 8": 64,
+      "ANY 1D": 127
+    },
+    "barcode_2d_symbologies": null,
+    "scan_directions": {
+      "vertical": 0,
+      "horizontal": 1,
+      "omnidirectional": 2,
+      "vertical and horizontal": 3
+    },
+    "x_drive_mm_per_increment": 0.1,
+    "loading_indicators_installed": false,
+    "initialization_track": 1,
+    "adjustment_date": "2000-01-01",
+    "adjusted": true,
+    "drive_zero_on_the_deck": 100.0,
+    "reference_point_from_sled_left_edge": 73.7,
+    "x_drive_range_increments": [
+      0,
+      12500
+    ],
+    "x_drive_speed_range_increments": [
+      20,
+      3000
+    ],
+    "x_drive_speed_default": 2500,
+    "x_drive_acceleration_ramp_range": [
+      1,
+      3
+    ],
+    "x_drive_acceleration_ramp_default": 3,
+    "z_drive_mm_per_increment": 0.004166666666666667,
+    "z_drive_range_increments": [
+      0,
+      3000
+    ],
+    "z_drive_speed_range_increments": [
+      20,
+      2000
+    ],
+    "z_drive_speed_default": 1750,
+    "z_drive_acceleration_ramp_range": [
+      1,
+      4
+    ],
+    "z_drive_acceleration_ramp_default": 4,
+    "y_drive_mm_per_increment": 0.06404424,
+    "y_drive_range_increments": [
+      0,
+      9999
+    ],
+    "y_drive_speed_range_increments": [
+      20,
+      2500
+    ],
+    "y_drive_speed_default": 2000,
+    "y_drive_acceleration_ramp_range": [
+      1,
+      6
+    ],
+    "y_drive_acceleration_ramp_default": 6,
+    "motor_current_limit_range": [
+      0,
+      7
+    ],
+    "motor_current_limit_default": 7,
+    "acceleration_ramp_increments_per_second_squared": 2500
+  }
+}

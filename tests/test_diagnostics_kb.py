@@ -122,8 +122,7 @@ class Scripted:
 def heal_demo(tmp_path, *replies, max_rounds=2):
     demo = json.loads((ROOT / "protocols" / "plate_wash_incubate_demo.json").read_text())
     config = ROOT / "config"
-    healer = SelfHealer(load_deck_config(str(config / "plr_deck_plate_assay.json")), str(config / "labware.json"),
-                        str(config / "protocol_defaults.json"), Scripted(*replies), str(tmp_path / "work"))
+    healer = SelfHealer(load_deck_config(str(config / "reference" / "plr_deck_plate_assay.json")), Scripted(*replies), str(tmp_path / "work"))
     return healer.heal(demo, max_rounds=max_rounds)
 
 

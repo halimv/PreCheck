@@ -1,0 +1,7 @@
+{
+  "description": "The carriers and labware AHC's Hamilton STARlet accepts in a layout, copied from AHC 0.9.0 (github.com/xthomaswang/ahc, src/ahc/devices/hamilton/starlet.md, `layout`, 2026-11-11). pipeline/ahc_export.py exports only these; AHC refuses anything else (carrier_not_allowed). AHC runs PyLabRobot 1.0, whose names can differ from 0.2.2's in case only (Cor_96_wellplate_360ul_Fb here, cor_96_wellplate_360uL_Fb in this pipeline), so names are matched ignoring case. Update this list when AHC adds types.",
+  "tracks": {"min": 1, "max": 30},
+  "carriers": ["TIP_CAR_480_A00", "PLT_CAR_L5AC_A00", "PLT_CAR_L5_DWP", "Trough_CAR_4R200_A00"],
+  "labware": ["hamilton_96_tiprack_300uL_filter", "hamilton_96_tiprack_1000uL_filter",
+              "Cor_96_wellplate_360ul_Fb", "cor_96_wellplate_2mL_Vb", "Hamilton_1_trough_200ml_Vb"]
+}

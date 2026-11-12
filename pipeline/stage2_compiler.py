@@ -44,7 +44,7 @@ def translate_step(step: Dict[str, Any], kinds: Dict[str, str]) -> str:
     if action == "tips_off":
         return "await lh.discard_tips()"
     if labware not in kinds:
-        raise CompilationError(f"Step {n}: labware '{labware}' is not on the deck (config/plr_deck.json).")
+        raise CompilationError(f"Step {n}: labware '{labware}' is not on the deck.")
     if any(not isinstance(ch, int) or not 0 <= ch < len(ROWS) for ch in channels):
         raise CompilationError(f"Step {n}: channels must be integers 0-7, got {channels}.")
 
@@ -131,6 +131,69 @@ def compile_protocol(protocol: Dict[str, Any], deck_config: Dict[str, Any]) -> s
         lines.append(f"    # step {step.get('step')}: {desc}")
         lines.extend("    " + line for line in translate_step(step, kinds).splitlines())
     return "\n".join(lines) + "\n"
+
+
+STANDALONE_HEADER = """\
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # repo root, for pipeline.deck
+"""
+
+STANDALONE_MAIN = """
+
+# --- Standalone runner: python {name} --backend chatterbox|star ---
+DECK_CONFIG = {deck_file!r}
+INITIAL_VOLUMES_UL = {volumes!r}
+
+
+async def _main(backend_name):
+    from pylabrobot.legacy.liquid_handling import LiquidHandler
+    from pylabrobot.legacy.liquid_handling.backends import LiquidHandlerChatterboxBackend, STARBackend
+    from pylabrobot.resources import set_tip_tracking, set_volume_tracking
+    from pipeline.deck import build_deck, load_deck_config, machines
+
+    set_tip_tracking(True)
+    set_volume_tracking(True)
+    deck, res = build_deck(load_deck_config(str(Path(__file__).resolve().parents[1] / DECK_CONFIG)), INITIAL_VOLUMES_UL)
+    backend = STARBackend() if backend_name == "star" else LiquidHandlerChatterboxBackend(num_channels=8)
+    lh = LiquidHandler(backend=backend, deck=deck)
+    await lh.setup()
+    for machine in machines(res):
+        await machine.setup()
+    try:
+        await run_protocol(lh, res)
+    finally:
+        for machine in machines(res):
+            await machine.stop()
+        await lh.stop()
+
+
+if __name__ == "__main__":
+    import argparse
+    import asyncio
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--backend", choices=["chatterbox", "star"], default="chatterbox")
+    args = parser.parse_args()
+    if args.backend == "star":
+        answer = input("Run on the real STARlet? The deck must match the setup checklist "
+                       "(demo/server.py -> Execute). Type 'run' to continue: ")
+        if answer.strip().lower() != "run":
+            sys.exit("Not run.")
+    asyncio.run(_main(args.backend))
+"""
+
+
+def compile_standalone(protocol: Dict[str, Any], deck_config: Dict[str, Any], deck_file: str, name: str) -> str:
+    """`compile_protocol` plus a `__main__` that builds the deck and runs it on ChatterBox or the STAR.
+
+    This is the script written to healed/. Stage 3 checks the plain module; the runner only adds
+    deck construction around the same `run_protocol`.
+    """
+    docstring, rest = compile_protocol(protocol, deck_config).split("\n", 1)
+    return (docstring + "\n" + STANDALONE_HEADER + rest
+            + STANDALONE_MAIN.format(name=name, deck_file=deck_file, volumes=protocol.get("initial_volumes_ul", {})))
 
 
 def compile_file(protocol_path: str, deck_config_path: str, output_dir: str) -> Path:

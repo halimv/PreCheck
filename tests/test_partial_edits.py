@@ -29,8 +29,7 @@ class Scripted:
 
 
 def healer(tmp_path, deck_file, backend):
-    return SelfHealer(load_deck_config(str(CONFIG / deck_file)), str(CONFIG / "labware.json"),
-                      str(CONFIG / "protocol_defaults.json"), backend, str(tmp_path))
+    return SelfHealer(load_deck_config(str(CONFIG / "reference" / deck_file)), backend, str(tmp_path))
 
 
 def test_correct_edit_survives_an_uncompilable_one(tmp_path):

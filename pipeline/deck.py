@@ -1,8 +1,14 @@
-"""Build the PyLabRobot deck described by config/plr_deck.json (or the deck a protocol names).
+"""Build the PyLabRobot deck a protocol names in its `deck_config` field.
 
 Deck construction is fixed config, not model output: stages 2-5 all build the same
 deck from the same file. Starting reagent volumes come from the protocol IR
 (`initial_volumes_ul`), because how much liquid the scientist loads is part of the plan.
+
+The deck is ground truth from VENUS: a `deck_config` that is a .lay (INSTRUMENT_DECK, the deck on the
+STARlet) is read directly, with every carrier and labware built as config/venus_labware.json says
+(PyLabRobot's factory where it matches VENUS, else VENUS's own definition in config/Labware). Labware
+IDs are the VENUS IDs. JSON deck configs remain for the reference simulation deck in config/reference/,
+which protocols written before the real deck was known (no `deck_config` field) still use.
 
 A deck config may also list `machines` (heater-shakers). Labware with `"on": "<machine id>"`
 sits on that machine instead of a carrier slot, so incubate and shake steps can reach it.
@@ -13,13 +19,20 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pylabrobot.resources as plr
-from pylabrobot.heating_shaking import HeaterShaker
-from pylabrobot.heating_shaking.chatterbox import HeaterShakerChatterboxBackend
-from pylabrobot.machines.machine import Machine
+from pylabrobot.legacy.heating_shaking import HeaterShaker
+from pylabrobot.legacy.heating_shaking.chatterbox import HeaterShakerChatterboxBackend
+from pylabrobot.legacy.machines.machine import Machine
 from pylabrobot.resources import Coordinate
 
 AMBIENT_C = 22.0
-DEFAULT_DECK = "config/plr_deck.json"
+ROOT = Path(__file__).resolve().parent.parent
+INSTRUMENT_DECK = "config/instrument/ahc_deck.lay"  # the deck on the STARlet (VENUS); new protocols are drafted on it
+REFERENCE_DECK = "config/reference/plr_deck.json"  # the hand-written simulation deck of the benchmark and tests
+DEFAULT_DECK = REFERENCE_DECK  # for protocols that name no deck: they all predate the real deck
+
+
+class DeckError(ValueError):
+    pass
 
 
 class DeviceError(ValueError):
@@ -76,13 +89,43 @@ def machines(res: Dict[str, Any]) -> List[Machine]:
 
 
 def load_deck_config(path: str) -> Dict[str, Any]:
+    """A deck config from a JSON file, or from a VENUS layout (.lay) read as ground truth."""
+    if str(path).lower().endswith(".lay"):
+        return deck_config_from_venus(path)
     with open(path, "r") as f:
         return json.load(f)
+
+
+def deck_config_from_venus(path: str, root: Path = ROOT) -> Dict[str, Any]:
+    """The deck a VENUS layout describes. Refused if anything on it cannot be built: a deck missing an item
+    would not know it is there."""
+    from pipeline.instrument import DEFAULT_INSTRUMENT
+    from pipeline.venus_layout import deck_config_from_lay, load_venus_map, read_lay
+
+    lay = Path(path)
+    config, problems = deck_config_from_lay(read_lay(lay.read_bytes()), load_venus_map(root), lay.name)
+    if problems:
+        raise DeckError(f"{lay.name} cannot be built: " + "; ".join(f"{p['id']}: {p['problem']}" for p in problems))
+    return {**config, "instrument": DEFAULT_INSTRUMENT}
+
+
+def is_reference(deck_config: Dict[str, Any]) -> bool:
+    """A hand-written simulation deck, not the instrument's: never for a run on the robot."""
+    return bool(deck_config.get("reference"))
 
 
 def deck_config_for(protocol: Dict[str, Any], root: Path) -> Dict[str, Any]:
     """The deck a protocol names in its `deck_config` field (relative to the repo root), else the default deck."""
     return load_deck_config(str(root / protocol.get("deck_config", DEFAULT_DECK)))
+
+
+def make_resource(spec: Dict[str, Any], name: str) -> plr.Resource:
+    """A carrier or labware from its deck-config entry: PyLabRobot's factory, or, with `"build": "venus"`, the
+    VENUS definition in config/Labware (pipeline/venus_labware.py)."""
+    if spec.get("build") == "venus":
+        from pipeline.venus_labware import make
+        return make(spec["venus"], name, factory=spec.get("factory"), role=spec.get("role"))
+    return getattr(plr, spec["factory"])(name=name)
 
 
 def _build_machine(machine_id: str, spec: Dict[str, Any]) -> Machine:
@@ -108,7 +151,7 @@ def build_deck(
 
     carriers = {}
     for spec in config["carriers"]:
-        carriers[spec["name"]] = getattr(plr, spec["factory"])(name=spec["name"])
+        carriers[spec["name"]] = make_resource(spec, spec["name"])
 
     resources: Dict[str, plr.Resource] = {}
     for machine_id, spec in config.get("machines", {}).items():
@@ -118,9 +161,11 @@ def build_deck(
         if spec["kind"] == "trash":
             resources[labware_id] = deck.get_trash_area()
             continue
-        resource = getattr(plr, spec["factory"])(name=labware_id)
+        resource = make_resource(spec, labware_id)
         if "on" in spec:
             resources[spec["on"]].assign_child_resource(resource)
+        elif "offset_mm" in spec:  # a trough's container inside its rack's footprint (pipeline/venus_labware.py)
+            carriers[spec["carrier"]].sites[spec["slot"]].assign_child_resource(resource, location=Coordinate(*spec["offset_mm"]))
         else:
             carriers[spec["carrier"]][spec["slot"]] = resource
         resources[labware_id] = resource
@@ -135,5 +180,9 @@ def build_deck(
         if not isinstance(container, plr.Container):
             raise KeyError(f"initial_volumes_ul names '{labware_id}', which is not a container on the deck")
         container.tracker.set_volume(volume)
+
+    if config.get("instrument"):  # the real instrument, from config/instrument/ (pipeline/instrument.py)
+        from pipeline.instrument import apply_to_deck, load_instrument
+        apply_to_deck(deck, load_instrument(config["instrument"]))
 
     return deck, resources

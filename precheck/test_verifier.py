@@ -13,12 +13,12 @@ def project_root():
 
 @pytest.fixture
 def labware_config_path(project_root):
-    return os.path.join(project_root, "config", "labware.json")
+    return os.path.join(project_root, "config", "reference", "labware.json")
 
 
 @pytest.fixture
 def protocol_config_path(project_root):
-    return os.path.join(project_root, "config", "protocol_defaults.json")
+    return os.path.join(project_root, "config", "reference", "protocol_defaults.json")
 
 
 @pytest.fixture

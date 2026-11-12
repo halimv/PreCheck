@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Execute on STARlet</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Self-healing protocol demo</h1>
+        <p>Hamilton STARlet · PyLabRobot · local model</p>
+        <nav class="nav"><a href="/">Live run</a><a href="/benchmark">Benchmark results</a><a href="/library">Library</a><a class="active" href="/execute">Execute</a></nav>
+      </div>
+
+      <section class="panel">
+        <label class="field">
+          <span>Healed protocol</span>
+          <select id="healed"></select>
+          <small id="healed-note" class="note"></small>
+        </label>
+        <dl class="kv" id="protocol-kv" hidden>
+          <dt>Name</dt><dd id="p-name"></dd>
+          <dt>Steps</dt><dd id="p-steps"></dd>
+          <dt>Compile + simulate</dt><dd id="p-gate"></dd>
+          <dt>Script</dt><dd id="p-script" class="mono"></dd>
+          <dt>Deck</dt><dd id="p-deck" class="mono"></dd>
+        </dl>
+      </section>
+
+      <section class="panel">
+        <label class="field">
+          <span>Venus deck layout (optional)</span>
+          <input type="file" id="lay-file" accept=".lay">
+          <small id="lay-note" class="hint">The protocol is checked against the instrument library's .lay (config/instrument/). Load another .lay to check against it instead.</small>
+        </label>
+      </section>
+
+      <section class="panel" id="assumptions-panel" hidden>
+        <h2>Claude's assumptions</h2>
+        <ul id="assumptions" class="fixes"></ul>
+        <div id="revisions-block" hidden>
+          <h2>Your change requests</h2>
+          <ol id="revisions" class="fixes"></ol>
+        </div>
+        <details><summary class="muted">Source protocol text</summary><p id="source-text" class="muted"></p></details>
+      </section>
+
+      <form id="run-form" class="panel">
+        <h2>Run</h2>
+        <fieldset class="field">
+          <legend>Backend</legend>
+          <label class="radio"><input type="radio" name="backend" value="local:chatterbox" checked> ChatterBox rehearsal on this computer</label>
+          <label class="radio pi-option"><input type="radio" name="backend" value="pi:chatterbox"> ChatterBox rehearsal on the Pi (checks the Pi's setup)</label>
+          <label class="radio pi-option"><input type="radio" name="backend" value="pi:star"> Hamilton STARlet via the Pi</label>
+          <label class="radio"><input type="radio" name="backend" value="local:star"> Hamilton STARlet on this computer's USB</label>
+        </fieldset>
+        <div id="pi-panel" class="field" hidden>
+          <small id="pi-status" class="hint">Checking the Pi…</small>
+          <div class="actions">
+            <button id="pi-refresh" type="button" class="small">Refresh</button>
+            <button id="pi-sync" type="button" class="small">Sync code to the Pi</button>
+          </div>
+        </div>
+        <fieldset class="field">
+          <legend>Mode</legend>
+          <label class="radio"><input type="radio" name="mode" value="tip_check" checked> Tip check: pick up and return one column per rack</label>
+          <label class="radio"><input type="radio" name="mode" value="full"> Full protocol</label>
+        </fieldset>
+        <small id="run-note" class="note"></small>
+        <button id="start" type="submit" class="primary" disabled>Start</button>
+        <button id="abort" type="button" class="danger" hidden>Abort after current step</button>
+      </form>
+    </aside>
+
+    <main class="main">
+      <div class="statusbar">
+        <span id="status-chip" class="chip idle">Idle</span>
+        <span id="status-text" class="muted">Pick a healed protocol. Run `python pipeline.py ...` to make one.</span>
+        <span id="elapsed" class="elapsed"></span>
+      </div>
+
+      <section class="card exec-section" id="deck-card" hidden>
+        <header><h3>Deck on the STARlet now</h3><span class="meta">From config/instrument/ahc_deck.lay (VENUS), seen from the front.</span></header>
+        <div class="block">
+          <div id="deck-svg" class="deck-svg"></div>
+          <p class="deck-legend muted"><span class="swatch used"></span> used by this protocol
+            <span class="swatch added"></span> to place before the run
+            <span class="swatch current"></span> current setup item</p>
+          <p id="deck-note-real" class="note"></p>
+          <div class="actions">
+            <button id="open-deck" type="button">Open the deck on the STARlet in PyLabRobot's visualizer</button>
+            <span id="deck-note" class="hint"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card exec-section" id="layout-card" hidden>
+        <header><h3 id="layout-title">Venus layout</h3><span id="layout-meta" class="meta"></span></header>
+        <div class="block">
+          <p id="layout-verdict" class="strong"></p>
+          <div id="layout-compare"></div>
+          <div id="layout-problems"></div>
+          <div id="layout-positions"></div>
+        </div>
+      </section>
+
+      <section class="card exec-section" id="checklist-card" hidden>
+        <header><h3>Deck setup</h3><span id="checklist-progress" class="meta"></span>
+          <button id="reset-checklist" type="button" class="small">Reset</button></header>
+        <div class="block"><ol id="checklist" class="checklist"></ol></div>
+      </section>
+
+      <section class="card exec-section" id="run-card" hidden>
+        <header><h3 id="run-title">Run</h3><span id="run-meta" class="meta"></span></header>
+        <div class="block">
+          <div class="progress"><div id="progress-bar"></div></div>
+          <p id="run-current" class="strong"></p>
+          <ol id="run-log" class="run-log"></ol>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/common.js"></script>
+  <script src="/static/execute.js"></script>
+</body>
+</html>

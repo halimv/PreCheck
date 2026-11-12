@@ -43,8 +43,6 @@ def run_one(scene: Scene, condition: str, args, work_dir: Path, deck_config: Dic
     max_rounds = 0 if condition == "B0" else args.max_rounds
     healer = SelfHealer(
         deck_config=deck_config,
-        labware_path=str(CONFIG_DIR / "labware.json"),
-        protocol_defaults_path=str(CONFIG_DIR / "protocol_defaults.json"),
         backend=backend,
         work_dir=str(work_dir),
         feedback_mode=feedback,
@@ -137,7 +135,7 @@ def main():
 
     run_dir = Path(args.output) / datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir.mkdir(parents=True, exist_ok=True)
-    deck_config = load_deck_config(str(CONFIG_DIR / "plr_deck.json"))
+    deck_config = load_deck_config(str(CONFIG_DIR / "reference" / "plr_deck.json"))
     jobs = [(c, s, k) for c in conditions for s in scenes for k in range(args.repeats if c not in ("B0", "B1") else 1)]
     print(f"{len(jobs)} runs -> {run_dir}")
 

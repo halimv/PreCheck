@@ -38,12 +38,12 @@ def test_original_still_has_its_known_defects():
 
 
 def test_stage1_passes_original():
-    result = Verifier(str(CONFIG / "labware.json"), str(V1), str(CONFIG / "protocol_defaults.json")).run_verification()
+    result = Verifier(str(CONFIG / "reference" / "labware.json"), str(V1), str(CONFIG / "reference" / "protocol_defaults.json")).run_verification()
     assert result["status"] == "PASSED"
 
 
 def test_stage3_fails_original_at_step_2_channel_spacing():
-    deck_config = load_deck_config(str(CONFIG / "plr_deck.json"))
+    deck_config = load_deck_config(str(CONFIG / "reference" / "plr_deck.json"))
     p = load_v1()
     sim = PLRSimulator(deck_config).run(compile_protocol(p, deck_config), p)
     assert sim.status == "FAILED"
@@ -52,7 +52,7 @@ def test_stage3_fails_original_at_step_2_channel_spacing():
 
 
 def test_reference_repair_passes_and_leaves_original_untouched():
-    deck_config = load_deck_config(str(CONFIG / "plr_deck.json"))
+    deck_config = load_deck_config(str(CONFIG / "reference" / "plr_deck.json"))
     original = load_v1()
     snapshot = copy.deepcopy(original)
 

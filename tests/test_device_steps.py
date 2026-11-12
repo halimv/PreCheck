@@ -22,7 +22,7 @@ CONFIG = ROOT / "config"
 
 
 def deck():
-    return load_deck_config(str(CONFIG / "plr_deck_plate_assay.json"))
+    return load_deck_config(str(CONFIG / "reference" / "plr_deck_plate_assay.json"))
 
 
 def demo():
@@ -38,7 +38,7 @@ def repaired():
 def verify(protocol, tmp_path):
     path = tmp_path / "protocol.json"
     path.write_text(json.dumps(protocol))
-    return Verifier(str(CONFIG / "labware.json"), str(path), str(CONFIG / "protocol_defaults.json")).run_verification()
+    return Verifier(str(CONFIG / "reference" / "labware.json"), str(path), str(CONFIG / "reference" / "protocol_defaults.json")).run_verification()
 
 
 def simulate(protocol, deck_config=None):
@@ -160,6 +160,6 @@ def test_intent_guard_protects_device_steps_and_empties():
 
 def test_transfer_only_protocols_compile_as_before():
     v1 = json.loads((ROOT / "protocols" / "serial_dilution_v1.json").read_text())
-    code = compile_protocol(v1, load_deck_config(str(CONFIG / "plr_deck.json")))
+    code = compile_protocol(v1, load_deck_config(str(CONFIG / "reference" / "plr_deck.json")))
     assert "heater_shaker" not in code
     assert code.splitlines()[1:4] == ["", "", "async def run_protocol(lh, res):"]

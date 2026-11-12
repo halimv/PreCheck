@@ -1,0 +1,42 @@
+{
+  "description": "The lab's Hamilton STARlet as it really is, for Precheck and anything downstream (stage 5, AHC). Deck configs name this file in their `instrument` field. Every fact names its source: the instrument's own firmware (starlet_F553_configuration.json, read with reads only by AHC's star_readonly_probe.py) or VENUS: its deck template (config/ML_Starlet.tpl, the deck's fixed parts), the layout of what is on the deck now (ahc_deck.lay) and the commands VENUS sends. pipeline/instrument.py checks these facts against those files when it loads, so a stale value fails at once. When the instrument or its deck changes, replace the source file and update the fact here.",
+  "serial": "F553",
+  "model": "Hamilton STARlet",
+  "firmware": "7.6S 32 2024-11-22 (GRU C0)",
+  "deck": {
+    "plr_class": "STARLetDeck",
+    "rails": 30,
+    "venus_deck": "ML_Starlet.dck"
+  },
+  "channels": {
+    "count": 8,
+    "volume_ul": 1000,
+    "min_pitch_mm": 9.0,
+    "note": "Each channel reports about 18 mm wide, but the channels take a plate column at 9 mm (AHC, first runs on this instrument, 2026-11-11)."
+  },
+  "head96": {
+    "installed": true,
+    "eject": {
+      "x_mm": -42.0,
+      "y_mm": 120.3,
+      "z_mm": 229.0,
+      "source": "VENUS initializes this STARlet's CO-RE 96 head over its slide waste with C0EI xs00420 xd1 yh1203 (core96slidewaste_0001 at x -42, y 120.3 in the deck template ML_Starlet.tpl) and lowers it to 229.0 mm (AHC 0.9.0, devices/hamilton/starlet.py). PyLabRobot 0.2.2 picks the same x and y but lowers to 216.4 mm; PyLabRobot 1.0's default (-46.5, 178.8) lowered the head onto the edge of the waste box."
+    }
+  },
+  "iswap": true,
+  "autoload": true,
+  "tip_waste": {
+    "x_mm": 800.0,
+    "note": "Firmware tip_waste_x_position; the deck template's waste2 is at the same x. Whether a waste bag is fitted is checked on the deck checklist, not here."
+  },
+  "deck_template": {
+    "file": "config/ML_Starlet.tpl",
+    "note": "VENUS's template for this STARlet's deck: the parts that never move (waste block, tip waste, teaching needles, 96 head slide waste). The head96 eject and tip waste facts are checked against it."
+  },
+  "deck_layout": {
+    "file": "config/instrument/ahc_deck.lay",
+    "saved": "2026-11-11 14:32 by msas in VENUS 6.4",
+    "note": "What is physically on the deck. Export a new .lay from VENUS and replace this file whenever the deck changes."
+  },
+  "firmware_configuration": "config/instrument/starlet_F553_configuration.json"
+}

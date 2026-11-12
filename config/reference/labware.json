@@ -1,10 +1,9 @@
 {
   "labware_library": {
-    "description": "Static library of hardware specifications (plates, tips, containers). Add new labware variants as needed.",
+    "description": "REFERENCE SIMULATION LABWARE, not the lab's: the volume limits the reference deck (config/reference/plr_deck*.json) is verified against. Real decks take capacities from VENUS's library (config/Labware) and Precheck's policy (config/precheck_policy.json). Static library of hardware specifications (plates, tips, containers). Add new labware variants as needed.",
     "version": "1.0",
     "last_updated": "2024-01-15"
   },
-
   "plates": {
     "corning_3595": {
       "id": "corning_3595",
@@ -46,9 +45,13 @@
         "Optimal for automated liquid handling"
       ],
       "storage_temperature": "15-25°C",
-      "use_cases": ["ELISA", "general assays", "cell culture", "immunoassays"]
+      "use_cases": [
+        "ELISA",
+        "general assays",
+        "cell culture",
+        "immunoassays"
+      ]
     },
-
     "corning_3603": {
       "id": "corning_3603",
       "manufacturer": "Corning",
@@ -87,9 +90,12 @@
         "Ultra-low evaporation lid included"
       ],
       "storage_temperature": "15-25°C",
-      "use_cases": ["fluorescence assays", "luminescence assays", "high-sensitivity detection"]
+      "use_cases": [
+        "fluorescence assays",
+        "luminescence assays",
+        "high-sensitivity detection"
+      ]
     },
-
     "corning_3610": {
       "id": "corning_3610",
       "manufacturer": "Corning",
@@ -124,10 +130,13 @@
         "Pre-sterilized"
       ],
       "storage_temperature": "15-25°C",
-      "use_cases": ["cell culture", "immunoassays", "cell-based assays"],
+      "use_cases": [
+        "cell culture",
+        "immunoassays",
+        "cell-based assays"
+      ],
       "notes": "Not suitable for plate readers due to V-bottom geometry"
     },
-
     "corning_3650": {
       "id": "corning_3650",
       "manufacturer": "Corning",
@@ -163,10 +172,13 @@
         "Ultra-low protein binding"
       ],
       "storage_temperature": "15-25°C",
-      "use_cases": ["spheroid culture", "organoid culture", "cell suspension maintenance"]
+      "use_cases": [
+        "spheroid culture",
+        "organoid culture",
+        "cell suspension maintenance"
+      ]
     }
   },
-
   "tips": {
     "hamilton_robotip_200": {
       "id": "hamilton_robotip_200",
@@ -229,9 +241,12 @@
         "humidity_percent": "30-70",
         "shelf_life_months": 24
       },
-      "use_cases": ["general liquid handling", "serial dilutions", "assay dispensing"]
+      "use_cases": [
+        "general liquid handling",
+        "serial dilutions",
+        "assay dispensing"
+      ]
     },
-
     "hamilton_robotip_1000": {
       "id": "hamilton_robotip_1000",
       "tip_type": "Standard Volume Multi-Channel Tips",
@@ -270,9 +285,12 @@
         "temperature_c": "15-25",
         "shelf_life_months": 24
       },
-      "use_cases": ["large volume transfers", "reservoir handling", "stock solution preparation"]
+      "use_cases": [
+        "large volume transfers",
+        "reservoir handling",
+        "stock solution preparation"
+      ]
     },
-
     "hamilton_robotip_filter_200": {
       "id": "hamilton_robotip_filter_200",
       "tip_type": "Filtered Multi-Channel Tips",
@@ -298,9 +316,13 @@
         "format": "96 tips per rack",
         "sterility": "Sterile"
       },
-      "use_cases": ["PCR work", "sensitive biologics", "contamination prevention", "high-risk applications"]
+      "use_cases": [
+        "PCR work",
+        "sensitive biologics",
+        "contamination prevention",
+        "high-risk applications"
+      ]
     },
-
     "hamilton_robotip_lpb_200": {
       "id": "hamilton_robotip_lpb_200",
       "tip_type": "Low Protein Binding Tips",
@@ -326,10 +348,14 @@
         "format": "96 tips per rack",
         "sterility": "Sterile"
       },
-      "use_cases": ["antibody handling", "recombinant proteins", "enzyme assays", "biologics"]
+      "use_cases": [
+        "antibody handling",
+        "recombinant proteins",
+        "enzyme assays",
+        "biologics"
+      ]
     }
   },
-
   "reagent_containers": {
     "tube_15ml": {
       "id": "tube_15ml",
@@ -339,9 +365,11 @@
       "size": "15 mL",
       "cap_type": "Screw cap",
       "description": "For stock solution storage",
-      "use_cases": ["stock solution", "concentrated reagents"]
+      "use_cases": [
+        "stock solution",
+        "concentrated reagents"
+      ]
     },
-
     "reservoir_50ml": {
       "id": "reservoir_50ml",
       "type": "Deep-well reservoir",
@@ -355,9 +383,12 @@
         "Vented cap",
         "Compatible with Hamilton multi-channel pipetting"
       ],
-      "use_cases": ["diluent storage", "buffer storage", "high-volume reagent handling"]
+      "use_cases": [
+        "diluent storage",
+        "buffer storage",
+        "high-volume reagent handling"
+      ]
     },
-
     "reservoir_100ml": {
       "id": "reservoir_100ml",
       "type": "Deep-well reservoir",
@@ -371,10 +402,13 @@
         "Vented cap",
         "Graduated markings"
       ],
-      "use_cases": ["high-volume experiments", "extended protocols", "large-scale dilutions"]
+      "use_cases": [
+        "high-volume experiments",
+        "extended protocols",
+        "large-scale dilutions"
+      ]
     }
   },
-
   "tip_racks": {
     "hamilton_tiprack_96": {
       "id": "hamilton_tiprack_96",

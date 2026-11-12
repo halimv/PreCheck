@@ -100,7 +100,7 @@ function deckCard(deck, index) {
     const known = id in index;
     const status = spec.kind === "trash" ? el("span", { class: "muted", text: "n/a" })
       : known ? el("span", { class: "badge ok", text: CATEGORY_LABELS[index[id]] || index[id] })
-        : el("span", { class: "badge warn", text: "not in labware.json" });
+        : el("span", { class: "badge warn", text: "not in reference labware.json" });
     return el("tr", {},
       el("th", { class: "mono", text: id }),
       el("td", { text: humanize(spec.kind) }),
@@ -155,7 +155,7 @@ function renderLabware() {
       Object.values(items).map((item) => inventoryCard(category, item, decks))));
 
   $("labware").replaceChildren(summary,
-    el("p", { class: "muted lib-sub", text: `config/labware.json · ${meta.description || ""} Version ${meta.version || "?"}, last updated ${meta.last_updated || "?"}.` }),
+    el("p", { class: "muted lib-sub", text: `config/reference/labware.json (reference simulation deck, not the lab's) · ${meta.description || ""} Version ${meta.version || "?"}, last updated ${meta.last_updated || "?"}.` }),
     ...groups,
     group("Deck layouts", "Where each labware ID used by the protocols sits on the STARlet.", decks.map((d) => deckCard(d, index))));
 }
@@ -168,18 +168,6 @@ function statCard(label, value, detail, kind = "") {
 }
 
 // ---------- knowledge tab ----------
-
-// Template text with {placeholders} highlighted; {{ and }} are literal braces.
-function template(text) {
-  const span = el("span", {});
-  for (const part of text.split(/(\{\{|\}\}|\{[^{}]+\})/)) {
-    if (part === "{{") span.append("{");
-    else if (part === "}}") span.append("}");
-    else if (/^\{[^{}]+\}$/.test(part)) span.append(el("code", { class: "ph", text: part.slice(1, -1).split(":")[0] }));
-    else if (part) span.append(part);
-  }
-  return span;
-}
 
 const joined = (t) => (Array.isArray(t) ? t.join(" ") : t);
 const list = (v) => (Array.isArray(v) ? v : [v]);
@@ -216,6 +204,8 @@ function observedView(obs) {
     el("dt", { text: "Failures seen" }), el("dd", { text: String(obs.seen) }),
     el("dt", { text: "Resolved" }), el("dd", { text: rate }),
     el("dt", { text: "Resolved by" }), el("dd", {}, tally(obs.resolved_by)),
+    obs.escalations ? el("dt", { text: "Escalated" }) : null,
+    obs.escalations ? el("dd", { text: `${obs.escalations} time(s): the model reasoned past this entry; ${obs.escalations_resolved || 0} of those resolved it` }) : null,
     el("dt", { text: "Edits rejected" }), el("dd", {}, tally(obs.rejected)),
     el("dt", { text: "Protocols" }), el("dd", { class: "mono", text: obs.protocols.join(", ") }),
     el("dt", { text: "Models" }), el("dd", { class: "mono", text: obs.models.join(", ") }),
@@ -266,6 +256,9 @@ function renderKnowledge() {
     statCard("Entries", entries.length, `${codes.size} error codes`),
     statCard("Seen in recorded runs", seen.length, seen.length ? seen.map((e) => e.code).join(", ") : "no runs recorded yet"),
     statCard("Failures recorded", total("seen"), `${total("resolved")} resolved of ${total("repair_attempts")} repair attempts`),
+    statCard("Proposals waiting for review", (kb.proposals || []).filter((p) => p.status === "pending").length,
+      `${(kb.proposals || []).filter((p) => p.status === "approved").length} approved · ${(kb.proposals || []).filter((p) => p.status === "rejected").length} rejected`,
+      (kb.proposals || []).some((p) => p.status === "pending") ? "warn" : ""),
     statCard("Unrecognized errors", unrecognized, unrecognized ? "Add an entry for them: see the last card" : "every recorded failure had an entry", unrecognized ? "warn" : ""));
 
   const glossary = el("section", { class: "card lib-card" },
@@ -278,9 +271,23 @@ function renderKnowledge() {
   glossary.dataset.search = "";
   glossary.dataset.always = "1";
 
-  $("knowledge").replaceChildren(summary,
+  const props = kb.proposals || [];
+  const pending = props.filter((p) => p.status === "pending");
+  const reviewed = props.filter((p) => p.status !== "pending").reverse();
+  const proposalCard = (p) => {
+    const c = card(`${p.id} ${p.kind} ${p.target} ${p.proposed.fix} ${p.proposed.why} ${p.proposed.code || ""}`,
+      el("div", { class: "block" }, proposalView(p, () => setTimeout(reload, 600))));
+    c.dataset.seen = "1";
+    return c;
+  };
+
+  $("knowledge").replaceChildren(...[summary,
+    pending.length ? group(`Waiting for your review (${pending.length})`,
+      "Proposed by the model after a failure kept coming back. Each one's fix healed a protocol; approving adds it to the entries the model sees in future runs.",
+      pending.map(proposalCard)) : null,
     group("Entries, in matching order", "The first entry whose conditions match a failure explains it.", entries.map((e, i) => entryCard(e, i + 1))),
-    el("section", { class: "bench-section" }, el("h2", { text: "Reference" }), glossary));
+    reviewed.length ? group("Reviewed proposals", "Kept as a record of what was approved and turned down.", reviewed.map(proposalCard)) : null,
+    el("section", { class: "bench-section" }, el("h2", { text: "Reference" }), glossary)].filter(Boolean));
 }
 
 // ---------- tabs and filter ----------
@@ -311,6 +318,13 @@ function applyFilter() {
   }
   for (const g of root.querySelectorAll(".lib-group")) g.hidden = ![...g.querySelectorAll(".lib-card")].some((c) => !c.hidden);
   $("lib-text").textContent = q || seenOnly ? `${shown} of ${all} shown` : `${all} ${lib.tab === "labware" ? "items and decks" : "entries"}`;
+}
+
+async function reload() {
+  lib.data = await (await fetch("/api/library")).json();
+  renderLabware();
+  renderKnowledge();
+  setTab(lib.tab);
 }
 
 async function init() {

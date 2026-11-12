@@ -1,4 +1,4 @@
-pylabrobot==0.2.2
+pylabrobot @ git+https://github.com/pylabrobot/pylabrobot@6262d633394cecb76673f31c79f10cb0ab2fa001  # 1.0.0b1, the build AHC pins
 pyyaml
 pytest
 # demo/server.py
@@ -6,3 +6,5 @@ flask
 # notebooks/pipeline_walkthrough.ipynb
 pandas
 ipykernel
+# reading protocol PDFs (stage 0; without it Claude reads the PDF itself)
+pypdf

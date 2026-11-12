@@ -1,0 +1,1299 @@
+{
+  "protocol_name": "Serial 1:10 dilution of culture in 0.9% saline",
+  "description": "Fills plate columns 1-8 with 90 uL sterile saline, adds 10 uL of culture to column 1, then serially transfers 10 uL from each column to the next after mixing, giving 10^-1 to 10^-8 in 8 replicate rows.",
+  "assumptions": [
+    "The protocol's 1 mL culture into 1 mL-scale saline is read as a 1:10 dilution (1 part culture + 9 parts saline), scaled 1/100 to 10 uL culture + 90 uL saline per well. The text's '10 ml of the solvent' would be 1:11; I followed the explicit 1:10 ratio.",
+    "volume_ul is per channel. An 8-channel aspiration draws 8x that volume from a single container.",
+    "The culture is not on the deck list. I assumed it is loaded in tube_15ml; the 5000 uL starting volume is an assumption (the protocol gives no volume).",
+    "Column k holds dilution 10^-k: columns 1-8 cover 10^-1 to 10^-8, which spans the 10-100 CFU/mL target for typical counts. The scientist selects the column to plate.",
+    "Each column is mixed (50 uL aspirate/dispense) with fresh tips before the 10 uL transfer, so tips never draw from a well they just filled.",
+    "Each transfer leaves 90 uL in the source column; column 8 keeps its 100 uL after mixing, with no further transfer.",
+    "Tip columns 1-10 of hamilton_tiprack_96 are used once each; hamilton_tiprack_96_b is not used.",
+    "Sterile technique and sterile tips are assumed. The protocol says the saline was sterilized but does not specify tip sterility.",
+    "Reservoir loaded with 8000 uL: the saline fill needs 8 columns x 90 uL x 8 channels = 5760 uL, plus dead volume.",
+    "Not done by the robot, and must be done outside the deck: plating the chosen dilutions onto agar, incubating ('optimum growth'), and counting colonies to confirm the 10-100 CFU/mL target."
+  ],
+  "reagents": {
+    "reservoir_50ml": "0.9% normal saline solution (sterilized)",
+    "tube_15ml": "Overnight/optimum-growth bacterial culture (volume assumed)"
+  },
+  "initial_volumes_ul": {
+    "reservoir_50ml": 8000,
+    "tube_15ml": 5000
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 1,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up tip column 1 for saline fill"
+    },
+    {
+      "step": 2,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 90 uL saline"
+    },
+    {
+      "step": 3,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 1,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense saline into column 1"
+    },
+    {
+      "step": 4,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 90 uL saline"
+    },
+    {
+      "step": 5,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 2,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense saline into column 2"
+    },
+    {
+      "step": 6,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 90 uL saline"
+    },
+    {
+      "step": 7,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 3,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense saline into column 3"
+    },
+    {
+      "step": 8,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 90 uL saline"
+    },
+    {
+      "step": 9,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 4,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense saline into column 4"
+    },
+    {
+      "step": 10,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 90 uL saline"
+    },
+    {
+      "step": 11,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 5,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense saline into column 5"
+    },
+    {
+      "step": 12,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 90 uL saline"
+    },
+    {
+      "step": 13,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 6,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense saline into column 6"
+    },
+    {
+      "step": 14,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 90 uL saline"
+    },
+    {
+      "step": 15,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 7,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense saline into column 7"
+    },
+    {
+      "step": 16,
+      "action": "aspirate",
+      "labware": "reservoir_50ml",
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 90 uL saline"
+    },
+    {
+      "step": 17,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 8,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense saline into column 8"
+    },
+    {
+      "step": 18,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard saline-fill tips"
+    },
+    {
+      "step": 19,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 2,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up tip column 2 for culture addition"
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 10,
+      "channels": [
+        0
+      ],
+      "description": "Aspirate 10 uL from tube_15ml using channel 0",
+      "step": 20
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 10,
+      "channels": [
+        1
+      ],
+      "description": "Aspirate 10 uL from tube_15ml using channel 1",
+      "step": 21
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 10,
+      "channels": [
+        2
+      ],
+      "description": "Aspirate 10 uL from tube_15ml using channel 2",
+      "step": 22
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 10,
+      "channels": [
+        3
+      ],
+      "description": "Aspirate 10 uL from tube_15ml using channel 3",
+      "step": 23
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 10,
+      "channels": [
+        4
+      ],
+      "description": "Aspirate 10 uL from tube_15ml using channel 4",
+      "step": 24
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 10,
+      "channels": [
+        5
+      ],
+      "description": "Aspirate 10 uL from tube_15ml using channel 5",
+      "step": 25
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 10,
+      "channels": [
+        6
+      ],
+      "description": "Aspirate 10 uL from tube_15ml using channel 6",
+      "step": 26
+    },
+    {
+      "action": "aspirate",
+      "labware": "tube_15ml",
+      "volume_ul": 10,
+      "channels": [
+        7
+      ],
+      "description": "Aspirate 10 uL from tube_15ml using channel 7",
+      "step": 27
+    },
+    {
+      "step": 28,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 1,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense culture into column 1 (10^-1)"
+    },
+    {
+      "step": 29,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard culture tips"
+    },
+    {
+      "step": 30,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 3,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Tip column 3 for mixing column 1"
+    },
+    {
+      "step": 31,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 1,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 1: aspirate 50 uL"
+    },
+    {
+      "step": 32,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 1,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 1: dispense 50 uL back"
+    },
+    {
+      "step": 33,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 1,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 10 uL from column 1 for transfer"
+    },
+    {
+      "step": 34,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 2,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer to column 2 (10^-2)"
+    },
+    {
+      "step": 35,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard tips"
+    },
+    {
+      "step": 36,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 4,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Tip column 4 for mixing column 2"
+    },
+    {
+      "step": 37,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 2,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 2: aspirate 50 uL"
+    },
+    {
+      "step": 38,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 2,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 2: dispense 50 uL back"
+    },
+    {
+      "step": 39,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 2,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 10 uL from column 2"
+    },
+    {
+      "step": 40,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 3,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer to column 3 (10^-3)"
+    },
+    {
+      "step": 41,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard tips"
+    },
+    {
+      "step": 42,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 5,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Tip column 5 for mixing column 3"
+    },
+    {
+      "step": 43,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 3,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 3: aspirate 50 uL"
+    },
+    {
+      "step": 44,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 3,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 3: dispense 50 uL back"
+    },
+    {
+      "step": 45,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 3,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 10 uL from column 3"
+    },
+    {
+      "step": 46,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 4,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer to column 4 (10^-4)"
+    },
+    {
+      "step": 47,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard tips"
+    },
+    {
+      "step": 48,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 6,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Tip column 6 for mixing column 4"
+    },
+    {
+      "step": 49,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 4,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 4: aspirate 50 uL"
+    },
+    {
+      "step": 50,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 4,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 4: dispense 50 uL back"
+    },
+    {
+      "step": 51,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 4,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 10 uL from column 4"
+    },
+    {
+      "step": 52,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 5,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer to column 5 (10^-5)"
+    },
+    {
+      "step": 53,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard tips"
+    },
+    {
+      "step": 54,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 7,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Tip column 7 for mixing column 5"
+    },
+    {
+      "step": 55,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 5,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 5: aspirate 50 uL"
+    },
+    {
+      "step": 56,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 5,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 5: dispense 50 uL back"
+    },
+    {
+      "step": 57,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 5,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 10 uL from column 5"
+    },
+    {
+      "step": 58,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 6,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer to column 6 (10^-6)"
+    },
+    {
+      "step": 59,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard tips"
+    },
+    {
+      "step": 60,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 8,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Tip column 8 for mixing column 6"
+    },
+    {
+      "step": 61,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 6,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 6: aspirate 50 uL"
+    },
+    {
+      "step": 62,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 6,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 6: dispense 50 uL back"
+    },
+    {
+      "step": 63,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 6,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 10 uL from column 6"
+    },
+    {
+      "step": 64,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 7,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer to column 7 (10^-7)"
+    },
+    {
+      "step": 65,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard tips"
+    },
+    {
+      "step": 66,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 9,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Tip column 9 for mixing column 7"
+    },
+    {
+      "step": 67,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 7,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 7: aspirate 50 uL"
+    },
+    {
+      "step": 68,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 7,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 7: dispense 50 uL back"
+    },
+    {
+      "step": 69,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 7,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Aspirate 10 uL from column 7"
+    },
+    {
+      "step": 70,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 8,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer to column 8 (10^-8)"
+    },
+    {
+      "step": 71,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard tips"
+    },
+    {
+      "step": 72,
+      "action": "tips_on",
+      "labware": "hamilton_tiprack_96",
+      "column": 10,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Tip column 10 for mixing final column 8"
+    },
+    {
+      "step": 73,
+      "action": "aspirate",
+      "labware": "corning_3595",
+      "column": 8,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 8: aspirate 50 uL"
+    },
+    {
+      "step": 74,
+      "action": "dispense",
+      "labware": "corning_3595",
+      "column": 8,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 8: dispense 50 uL back"
+    },
+    {
+      "step": 75,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Discard tips; dilution series complete"
+    }
+  ],
+  "deck_config": "config/reference/plr_deck.json",
+  "source": {
+    "name": "input",
+    "text": "serially dilute the (Optimum growth of culture obtained) in 0.9% normal saline solution previously sterilized in a ratio of 1: 10 dilution i.e. (1ml of the culture diluted in 10ml of the solvent) so that the dilution must yield atleast a count of 10\u2013100 CFU/ml."
+  }
+}

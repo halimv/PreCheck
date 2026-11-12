@@ -1,7 +1,10 @@
 {
-  "description": "Plate-assay deck for the Hamilton STARlet: the serial-dilution deck plus a Hamilton heater-shaker (rails 26) holding the assay plate, and a second trough for wash buffer. Used for protocols with incubate, shake and empty steps.",
+  "description": "REFERENCE SIMULATION DECK, not the instrument. A fixed, hand-written deck kept so the self-healing run, the benchmark and the reproducibility tests stay comparable with their documented results. The real deck is config/instrument/ahc_deck.lay (VENUS ground truth); never run a protocol on this deck on the robot. Original description: PyLabRobot deck layout for the Hamilton STARlet. Maps each labware ID used in protocols/ to a PLR resource factory and a carrier position. Stage 2 (compiler), stage 3 (simulator), stage 4 (visualizer) and stage 5 (executor) all build the deck from this file; starting reagent volumes live in the protocol IR.",
+  "reference": true,
+  "labware_limits": "config/reference/labware.json",
   "plr_version": "0.2.2",
   "deck": "STARLetDeck",
+  "instrument": "config/instrument/starlet_F553.json",
   "carriers": [
     {
       "name": "tip_carrier",
@@ -41,7 +44,8 @@
     },
     "corning_3595": {
       "factory": "cor_96_wellplate_360uL_Fb",
-      "on": "hhs_1",
+      "carrier": "plate_carrier",
+      "slot": 0,
       "kind": "plate"
     },
     "reservoir_50ml": {
@@ -50,13 +54,6 @@
       "slot": 0,
       "kind": "container",
       "note": "Nearest PLR trough (60 mL)."
-    },
-    "wash_buffer_trough": {
-      "factory": "hamilton_1_trough_60mL_Vb",
-      "carrier": "trough_carrier",
-      "slot": 1,
-      "kind": "container",
-      "note": "Wash buffer."
     },
     "tube_15ml": {
       "factory": "cor_falcon_tube_15mL_Vb",
@@ -67,28 +64,6 @@
     "waste": {
       "kind": "trash",
       "note": "The deck's built-in trash area."
-    }
-  },
-  "machines": {
-    "hhs_1": {
-      "kind": "heater_shaker",
-      "rails": 26,
-      "size_mm": [
-        146.2,
-        103.6,
-        74.11
-      ],
-      "child_location_mm": [
-        10,
-        13,
-        74.24
-      ],
-      "speed_rpm": [
-        20,
-        2000
-      ],
-      "max_temperature_c": 105,
-      "note": "Hamilton Heater Shaker. Dimensions from PLR's tested HeaterShaker example (mfx_carriers.py); speed and temperature limits are the ones PLR's HamiltonHeaterShakerBackend asserts."
     }
   }
 }

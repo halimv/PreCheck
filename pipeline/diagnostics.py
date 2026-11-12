@@ -18,9 +18,9 @@ import re
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
-from pylabrobot.liquid_handling.errors import ChannelizedError, ChannelsDoNotFitError
+from pylabrobot.legacy.liquid_handling.errors import ChannelizedError, ChannelsDoNotFitError
 from pylabrobot.resources.errors import (
     CrossContaminationError,
     HasTipError,
@@ -89,6 +89,29 @@ EXCEPTIONS = {
 }
 CONDITIONS = {"error", "message_contains", "device_code", "action", "action_is_not", "reagent_loaded"}
 ENTRY_FIELDS = {"id", "code", "title", "when", "facts", "explanation", "fixes", "notes", "observed"}
+# Placeholders every entry can use, and the ones each fact adds.
+ALWAYS_FIELDS = ("n", "action", "labware", "column", "channels", "n_channels", "last_channel", "volume_ul",
+                 "speed_rpm", "temperature_c", "error", "raw")
+FACT_FIELDS = {
+    "container_fit": ("width", "pitch", "fit"),
+    "liquid_levels": ("requested", "available"),
+    "reagent_plan": ("start", "needed", "load"),
+    "free_tip_columns": ("free",),
+}
+
+
+def exception_class(name: str) -> Optional[type]:
+    """The exception class with this name: a common one above, or any exception class loaded in
+    this process (so an entry proposed from a run can name whatever PyLabRobot raised)."""
+    if name in EXCEPTIONS:
+        return EXCEPTIONS[name]
+    todo = [BaseException]
+    while todo:
+        cls = todo.pop()
+        if cls.__name__ == name:
+            return cls
+        todo.extend(cls.__subclasses__())
+    return None
 
 
 @dataclass
@@ -165,7 +188,7 @@ def _as_list(value: Any) -> List[Any]:
 
 
 def _matches(cond: Dict[str, Any], f: Failure) -> bool:
-    if "error" in cond and not isinstance(f.err, tuple(EXCEPTIONS[name] for name in _as_list(cond["error"]))):
+    if "error" in cond and not {c.__name__ for c in type(f.err).__mro__} & set(_as_list(cond["error"])):
         return False
     if "message_contains" in cond and cond["message_contains"] not in str(f.err):
         return False
@@ -202,25 +225,30 @@ def _check_entry(i: int, entry: Dict[str, Any], last: bool) -> None:
     for cond in _as_list(entry.get("when", {})):
         if unknown := set(cond) - CONDITIONS:
             raise ValueError(f"{where}: unknown condition(s) {sorted(unknown)}")
-        if missing := [e for e in _as_list(cond.get("error", [])) if e not in EXCEPTIONS]:
+        if missing := [e for e in _as_list(cond.get("error", [])) if exception_class(e) is None]:
             raise ValueError(f"{where}: unknown error class(es) {missing}")
     if missing := [name for name in entry.get("facts", []) if name not in FACTS]:
         raise ValueError(f"{where}: unknown fact(s) {missing}")
+
+
+def check_entries(entries: Any, name: str = KNOWLEDGE_BASE.name) -> None:
+    """Raise ValueError describing the first problem in a list of entries."""
+    if not isinstance(entries, list) or not entries:
+        raise ValueError(f"{name}: expected a list of entries under 'entries'")
+    for i, entry in enumerate(entries):
+        _check_entry(i, entry, last=i == len(entries) - 1)
+    if "when" in entries[-1] and entries[-1]["when"]:
+        raise ValueError(f"{name}: the last entry must leave out 'when' so every error is covered")
+    ids = [e["id"] for e in entries]
+    if dupes := sorted({x for x in ids if ids.count(x) > 1}):
+        raise ValueError(f"{name}: duplicate id(s) {dupes}")
 
 
 @functools.lru_cache(maxsize=None)
 def knowledge_base(path: Path = KNOWLEDGE_BASE) -> List[Dict[str, Any]]:
     """Load and check the knowledge base; typos in a hand-edited entry fail here, not mid-run."""
     entries = json.loads(path.read_text()).get("entries")
-    if not isinstance(entries, list) or not entries:
-        raise ValueError(f"{path.name}: expected a list of entries under 'entries'")
-    for i, entry in enumerate(entries):
-        _check_entry(i, entry, last=i == len(entries) - 1)
-    if "when" in entries[-1] and entries[-1]["when"]:
-        raise ValueError(f"{path.name}: the last entry must leave out 'when' so every error is covered")
-    ids = [e["id"] for e in entries]
-    if dupes := sorted({x for x in ids if ids.count(x) > 1}):
-        raise ValueError(f"{path.name}: duplicate id(s) {dupes}")
+    check_entries(entries, path.name)
     return entries
 
 
@@ -251,6 +279,17 @@ def translate(
         "error_code": entry["code"],
         "explanation": _text(entry["explanation"]).format(**fields),
         "suggested_fixes": [_text(fix).format(**fields) for fix in entry.get("fixes", [])],
+        # This failure's placeholder values, so a proposed fix can be shown filled in for review.
+        "fields": {k: v if isinstance(v, (int, float, str, list, type(None))) else str(v) for k, v in fields.items()},
+        # What a new entry for this failure would match on (used by knowledge proposals).
+        "match": {
+            "error": type(f.err).__name__,
+            "message": str(f.err),
+            "device_code": getattr(f.err, "code", None),
+            "action": f.step.get("action"),
+            "labware": f.labware,
+            "reagent_loaded": f.reagent_loaded(),
+        },
     }
 
 
@@ -288,13 +327,34 @@ def _outcome(r: Dict[str, Any], nxt: Optional[Dict[str, Any]]) -> Optional[str]:
     return "+".join(sorted({e.get("op", "?") for e in applied})) if moved_on else None
 
 
-def record_run(rounds: List[Dict[str, Any]], protocol: str, model: str, path: Path = KNOWLEDGE_BASE,
-               today: Optional[datetime.date] = None) -> List[str]:
-    """Add what a self-healing run learned to the knowledge base. `rounds` is HealResult.rounds.
-    Returns the ids of the entries that were updated."""
-    date = (today or datetime.date.today()).isoformat()
+def update_knowledge(path: Path, change: Callable[[Dict[str, Any]], Any]) -> Any:
+    """Read the knowledge base, apply `change` to it, and write it back atomically. If `change`
+    raises, nothing is written. Returns what `change` returned."""
     with _write_lock:
         kb = json.loads(path.read_text())
+        result = change(kb)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(kb, indent=2, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)  # never leave a half-written knowledge base
+    knowledge_base.cache_clear()
+    return result
+
+
+def decisions_path(path: Path) -> Path:
+    """The decision log kept next to a knowledge base."""
+    return path.parent / "decisions.jsonl"
+
+
+def record_run(rounds: List[Dict[str, Any]], protocol: str, model: str, path: Path = KNOWLEDGE_BASE,
+               today: Optional[datetime.date] = None) -> List[str]:
+    """Add what a self-healing run learned to the knowledge base, and append one line per repair
+    decision to decisions.jsonl next to it. `rounds` is HealResult.rounds. Returns the ids of the
+    entries that were updated."""
+    date = (today or datetime.date.today()).isoformat()
+    status = "HEALED" if rounds and rounds[-1]["passed"] else "GAVE_UP"
+    decisions: List[Dict[str, Any]] = []
+
+    def change(kb: Dict[str, Any]) -> List[str]:
         by_id = {e["id"]: e for e in kb["entries"]}
         updated = []
         for i, r in enumerate(rounds):
@@ -307,12 +367,18 @@ def record_run(rounds: List[Dict[str, Any]], protocol: str, model: str, path: Pa
             })
             nxt = rounds[i + 1] if i + 1 < len(rounds) else None
             resolved_by = _outcome(r, nxt)
+            escalated = r.get("mode") == "escalated"
+            if "edits" in r:
+                decisions.append(_decision(r, entry, obs, resolved_by, status, protocol, model, date))
             obs["seen"] += 1
             if r.get("edits_applied"):
                 obs["repair_attempts"] += 1
             if resolved_by:
                 obs["resolved"] += 1
                 obs["resolved_by"][resolved_by] = obs["resolved_by"].get(resolved_by, 0) + 1
+            if escalated:
+                obs["escalations"] = obs.get("escalations", 0) + 1
+                obs["escalations_resolved"] = obs.get("escalations_resolved", 0) + bool(resolved_by)
             for err in r.get("edit_errors", []):
                 kind = rejection_kind(err)
                 obs["rejected"][kind] = obs["rejected"].get(kind, 0) + 1
@@ -328,12 +394,42 @@ def record_run(rounds: List[Dict[str, Any]], protocol: str, model: str, path: Pa
                 outcome = "all edits rejected"
             else:
                 outcome = "edits applied, failure remained"
+            if escalated:
+                outcome += " (model reasoned past the knowledge base)"
             obs["examples"] = (obs["examples"] + [{
                 "date": date, "protocol": protocol, "model": model, "step": r.get("step"),
                 "raw_error": r.get("raw_error"), "outcome": outcome,
             }])[-MAX_EXAMPLES:]
             updated.append(entry["id"])
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(kb, indent=2, ensure_ascii=False) + "\n")
-        os.replace(tmp, path)  # never leave a half-written knowledge base
+        return updated
+
+    updated = update_knowledge(path, change)
+    if decisions:
+        with _write_lock, decisions_path(path).open("a") as log:
+            for d in decisions:
+                log.write(json.dumps(d) + "\n")
     return updated
+
+
+def _decision(r: Dict[str, Any], entry: Dict[str, Any], obs: Dict[str, Any], resolved_by: Optional[str],
+              status: str, protocol: str, model: str, date: str) -> Dict[str, Any]:
+    """One repair decision, for a future policy that chooses between following the knowledge base
+    and asking the model to reason past it. Features are what was known before the decision
+    (the entry's history is read before this round is added to it); the rest is the outcome."""
+    match = r.get("match", {})
+    return {
+        "date": date, "protocol": protocol, "model": model, "round": r["round"],
+        # features
+        "kb_entry": entry["id"], "code": entry["code"], "error": match.get("error"), "action": match.get("action"),
+        "reagent_loaded": match.get("reagent_loaded"), "repeats": r.get("repeats", 0),
+        "entry_has_fixes": bool(entry.get("fixes")), "entry_seen_before": obs["seen"],
+        "entry_attempts_before": obs["repair_attempts"], "entry_resolved_before": obs["resolved"],
+        "previous_rejections": r.get("previous_rejections", []),
+        # action taken: follow the knowledge base, or reason past it
+        "mode": r.get("mode", "knowledge_base"), "policy": r.get("policy", "none"),
+        # outcome
+        "edits_applied": len(r.get("edits_applied", [])),
+        "rejections": sorted({rejection_kind(e) for e in r.get("edit_errors", [])}),
+        "resolved": bool(resolved_by), "resolved_by": resolved_by, "run_status": status,
+        "proposal": bool(r.get("knowledge_proposal")),
+    }

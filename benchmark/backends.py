@@ -19,11 +19,11 @@ class CountingOllamaBackend(OllamaBackend):
         self.temperature = temperature
         self.calls: List[Dict[str, Any]] = []
 
-    def propose_edits(self, system: str, prompt: str) -> Dict[str, Any]:
+    def propose_edits(self, system: str, prompt: str, schema: Dict[str, Any] = EDIT_SCHEMA) -> Dict[str, Any]:
         body = {
             "model": self.model,
             "stream": False,
-            "format": EDIT_SCHEMA,
+            "format": schema,
             "options": {"temperature": self.temperature, "num_ctx": self.num_ctx},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
         }
@@ -52,7 +52,7 @@ class RuleBackend:
     def __init__(self):
         self.calls: List[Dict[str, Any]] = []
 
-    def propose_edits(self, system: str, prompt: str) -> Dict[str, Any]:
+    def propose_edits(self, system: str, prompt: str, schema: Any = None) -> Dict[str, Any]:
         self.calls.append({"prompt_tokens": 0, "output_tokens": 0, "seconds": 0.0})
         m = SET_VOLUME.search(prompt)
         if m:
