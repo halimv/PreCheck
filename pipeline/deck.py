@@ -88,7 +88,7 @@ def reach(resource: Any, channels: List[int]) -> Dict[str, Any]:
     ys = getattr(resource, "venus_access_y", None)
     if not ys or max(channels) >= len(ys):
         return {}
-    return {"spread": "custom", "offsets": [Coordinate(0, ys[ch], 0) for ch in channels]}
+    return {"offsets": [Coordinate(0, ys[ch], 0) for ch in channels]}
 
 
 def machines(res: Dict[str, Any]) -> List[Machine]:

@@ -355,6 +355,28 @@
       "notes": "The intent guard allows extra room-temperature hold time, so this fix is accepted without the scientist."
     },
     {
+      "id": "piston_travel",
+      "code": "PISTON_TRAVEL",
+      "title": "A channel's piston cannot push out that much",
+      "when": [
+        {
+          "error": "ValueError",
+          "message_contains": "piston holds"
+        }
+      ],
+      "facts": [],
+      "explanation": [
+        "Step {n} makes {n_channels} channel(s) dispense from '{labware}' with a single piston stroke of {volume_ul} uL each.",
+        "On the STAR a channel pushes out only the liquid its piston is holding, and a dispense also pushes out the transport air in front of it, so the stroke needs more room than the liquid alone.",
+        "The simulator says: {error}"
+      ],
+      "fixes": [
+        "Aspirate for each dispense separately: for every dispense in step {n} (and the aspirate before it), put an aspirate of that dispense's volume plus 5 uL on the same channel and labware immediately before it, so the piston never holds more than one dispense's worth. The total volume moved stays the same.",
+        "Or aspirate a surplus (about 5 uL more than the dispenses add up to) and leave it in the tip, so the piston has room for the air."
+      ],
+      "notes": "Found by the STAR model's piston rule (PyLabRobot's STAR driver), which the legacy ChatterBox did not model. The 50 uL pair size is a starting point; the scientist sets the real limit for their tips and liquids."
+    },
+    {
       "id": "unrecognized",
       "code": "UNRECOGNIZED",
       "title": "Anything not covered above",

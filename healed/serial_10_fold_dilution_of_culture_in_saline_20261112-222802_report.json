@@ -1,0 +1,258 @@
+{
+  "status": "ALREADY_PASSING",
+  "name": "serial_10_fold_dilution_of_culture_in_saline_20261112-222802",
+  "protocol_name": "Serial 10-fold dilution of culture in saline",
+  "steps": 52,
+  "repair_rounds": 0,
+  "simulated_on": "PyLabRobot's STAR model, configured as this instrument",
+  "files": {
+    "ir": "healed/serial_10_fold_dilution_of_culture_in_saline_20261112-222802.json",
+    "script": "healed/serial_10_fold_dilution_of_culture_in_saline_20261112-222802_plr.py",
+    "heal_log": "healed/serial_10_fold_dilution_of_culture_in_saline_20261112-222802_heal_log.json",
+    "ahc_layout": "healed/serial_10_fold_dilution_of_culture_in_saline_20261112-222802.ahc_layout.yaml",
+    "report": "healed/serial_10_fold_dilution_of_culture_in_saline_20261112-222802_report.json"
+  },
+  "review": {
+    "protocol": "Serial 10-fold dilution of culture in saline",
+    "deck": "decks/serial_10_fold_dilution_of_culture_in_saline_20261112-222802.json",
+    "assumptions": [
+      "Read the protocol's 1 mL culture in 10 mL solvent as a 1:10 dilution step: 10 \u00b5L culture is mixed into 90 \u00b5L saline per well, scaled by 1/100 from the bench volumes. Each later column is 10 \u00b5L of the previous column into 90 \u00b5L fresh saline.",
+      "Six serial dilutions (columns 1\u20136 = 10^-1 to 10^-6) were chosen because the protocol does not state how many steps are needed. The scientist should confirm that the 10\u2013100 CFU/mL target falls within these columns for the expected culture density.",
+      "The culture is loaded into a 1.9 mL reservoir instead of a tube, because the 8-channel head needs a multi-well source. 500 \u00b5L is loaded: 80 \u00b5L is needed for column 1 plus dead volume.",
+      "Diluent loaded is 5000 \u00b5L: 6 columns \u00d7 90 \u00b5L \u00d7 8 rows = 4320 \u00b5L, plus dead volume.",
+      "Each serial-transfer column is mixed by aspirating and dispensing 50 \u00b5L in place before the 10 \u00b5L transfer. The last column (10^-6) is mixed with its own fresh tips at the end of the run.",
+      "Tips are changed every time the source changes, so each tip column is used once. The diluent is dispensed with one tip column for all six columns, which is allowed because the tips only aspirate from the same source.",
+      "The saline is assumed to be pre-sterilized and the culture aseptically handled. Plating, colony counting and incubation are outside the robot and are not in the steps. The plate must be removed and plated by hand after the run."
+    ],
+    "labware": [
+      {
+        "name": "tips",
+        "kind": "tip_rack",
+        "type": "STF_L",
+        "where": "TIP_CAR_480_A00 at rail 7, position 1",
+        "holds": null
+      },
+      {
+        "name": "dilution_plate",
+        "kind": "plate",
+        "type": "Cos_96_PCR",
+        "where": "PLT_CAR_L5_DWP at rail 1, position 4",
+        "holds": null
+      },
+      {
+        "name": "waste",
+        "kind": "trash",
+        "type": "tip waste",
+        "where": "the deck's tip waste",
+        "holds": null
+      },
+      {
+        "name": "diluent",
+        "kind": "container",
+        "type": "RGT_CONT_50ml_A00",
+        "where": "RGT_CAR_5R60_A00 at rail 13, position 1",
+        "holds": "0.9% normal saline (sterile)"
+      },
+      {
+        "name": "culture",
+        "kind": "container",
+        "type": "RGT_CONT_50ml_A00",
+        "where": "RGT_CAR_5R60_A00 at rail 13, position 2",
+        "holds": "Bacterial culture at optimum growth"
+      }
+    ],
+    "reagents": [
+      {
+        "labware": "diluent",
+        "reagent": "0.9% normal saline (sterile)",
+        "loaded_ul": 5000,
+        "drawn_ul": 4320.0,
+        "left_ul": 680.0,
+        "capacity_ul": 63000.0
+      },
+      {
+        "labware": "culture",
+        "reagent": "Bacterial culture at optimum growth",
+        "loaded_ul": 500,
+        "drawn_ul": 80.0,
+        "left_ul": 420.0,
+        "capacity_ul": 63000.0
+      }
+    ],
+    "wells": [
+      {
+        "plate": "dilution_plate",
+        "column": 1,
+        "rows": "ABCDEFGH",
+        "volume_ul": 90.0,
+        "contents": {
+          "0.9% normal saline (sterile)": {
+            "ul": 81.0,
+            "dilution": 1.1
+          },
+          "Bacterial culture at optimum growth": {
+            "ul": 9.0,
+            "dilution": 10.0
+          }
+        },
+        "flags": []
+      },
+      {
+        "plate": "dilution_plate",
+        "column": 2,
+        "rows": "ABCDEFGH",
+        "volume_ul": 90.0,
+        "contents": {
+          "0.9% normal saline (sterile)": {
+            "ul": 89.1,
+            "dilution": 1.0
+          },
+          "Bacterial culture at optimum growth": {
+            "ul": 0.9,
+            "dilution": 100.0
+          }
+        },
+        "flags": []
+      },
+      {
+        "plate": "dilution_plate",
+        "column": 3,
+        "rows": "ABCDEFGH",
+        "volume_ul": 90.0,
+        "contents": {
+          "0.9% normal saline (sterile)": {
+            "ul": 89.91,
+            "dilution": 1.0
+          },
+          "Bacterial culture at optimum growth": {
+            "ul": 0.09,
+            "dilution": 1000.0
+          }
+        },
+        "flags": []
+      },
+      {
+        "plate": "dilution_plate",
+        "column": 4,
+        "rows": "ABCDEFGH",
+        "volume_ul": 90.0,
+        "contents": {
+          "0.9% normal saline (sterile)": {
+            "ul": 89.991,
+            "dilution": 1.0
+          },
+          "Bacterial culture at optimum growth": {
+            "ul": 0.009,
+            "dilution": 10000.0
+          }
+        },
+        "flags": []
+      },
+      {
+        "plate": "dilution_plate",
+        "column": 5,
+        "rows": "ABCDEFGH",
+        "volume_ul": 90.0,
+        "contents": {
+          "0.9% normal saline (sterile)": {
+            "ul": 89.999,
+            "dilution": 1.0
+          },
+          "Bacterial culture at optimum growth": {
+            "ul": 0.0009,
+            "dilution": 100000.0
+          }
+        },
+        "flags": []
+      },
+      {
+        "plate": "dilution_plate",
+        "column": 6,
+        "rows": "ABCDEFGH",
+        "volume_ul": 100.0,
+        "contents": {
+          "0.9% normal saline (sterile)": {
+            "ul": 100.0,
+            "dilution": 1.0
+          },
+          "Bacterial culture at optimum growth": {
+            "ul": 0.0001,
+            "dilution": 1000000.0
+          }
+        },
+        "flags": []
+      }
+    ],
+    "limits": {
+      "dilution_plate": {
+        "min_ul": 30,
+        "max_ul": 260.7,
+        "capacity_ul": 289.7,
+        "source": "capacity from VENUS CORNING-COSTAR/Cos_96_PCR.rck; dead volume and fill fraction from config/precheck_policy.json"
+      }
+    },
+    "policy": {
+      "dead_volume_ul": 30,
+      "max_fill_fraction": 0.9,
+      "by_type": {}
+    },
+    "tips": {
+      "used": 64,
+      "columns": {
+        "tips": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      }
+    },
+    "steps": 52,
+    "channels": 8
+  },
+  "suggestions": [
+    {
+      "id": "liquid_too_shallow",
+      "steps": [],
+      "title": "'diluent' starts 4.0 mm deep and ends 0.5 mm deep",
+      "detail": "5000 uL spreads thin in this container. Below about 2 mm a tip draws air or misses the liquid; the simulator checks volume, not depth. Load more, or use a narrower container (a tube) for a small volume.",
+      "request": "Keep at least 2 mm of liquid in 'diluent' to the end of the run: load more, or move this reagent to a container narrow enough for its volume."
+    },
+    {
+      "id": "liquid_too_shallow",
+      "steps": [],
+      "title": "'culture' starts 0.4 mm deep and ends 0.3 mm deep",
+      "detail": "500 uL spreads thin in this container. Below about 2 mm a tip draws air or misses the liquid; the simulator checks volume, not depth. Load more, or use a narrower container (a tube) for a small volume.",
+      "request": "Keep at least 2 mm of liquid in 'culture' to the end of the run: load more, or move this reagent to a container narrow enough for its volume."
+    },
+    {
+      "id": "aspirate_per_dispense",
+      "steps": [
+        2,
+        4,
+        6,
+        8,
+        10,
+        12
+      ],
+      "title": "6 trips to 'diluent' for 90 uL each, with 360 uL tips",
+      "detail": "One aspirate could feed 4 dispenses, so 2 trip(s) would do instead of 6. Multi-dispensing is less accurate than one aspirate per dispense (the first and last shots differ), so this is a trade of time against precision.",
+      "request": "Fill steps 2-13 by multi-dispensing: aspirate enough for up to 4 dispenses at a time from 'diluent'."
+    }
+  ],
+  "ahc": {
+    "accepted_types_from": "/Users/vaniahalim/.claude/plugins/marketplaces/agentic-hardware-control/src/ahc/devices/hamilton/starlet.md",
+    "not_on_layout": [],
+    "differs_from_venus": [
+      "carrier PLT_CAR_L5_DWP_0001: AHC builds PyLabRobot's PLT_CAR_L5_DWP, which differs from VENUS (position 5 y: PyLabRobot 8.2, VENUS 9 (-0.80 mm), and 9 more)",
+      "dilution_plate: VENUS's Cos_96_PCR goes to AHC as Cor_96_wellplate_360ul_Fb (AHC has no PCR plate, so it gets the 96-well plate AHC has run on this carrier: on a PLT_CAR_L5_DWP its wells are 0.4 mm off in x, their bottom 0.86 mm higher, 10.67 mm deep where VENUS says 20.5, and 360 uL where VENUS says 290)",
+      "Cos_96_PCR_0001: VENUS's Cos_96_PCR goes to AHC as Cor_96_wellplate_360ul_Fb (AHC has no PCR plate, so it gets the 96-well plate AHC has run on this carrier: on a PLT_CAR_L5_DWP its wells are 0.4 mm off in x, their bottom 0.86 mm higher, 10.67 mm deep where VENUS says 20.5, and 360 uL where VENUS says 290)",
+      "culture: VENUS's RGT_CONT_50ml_A00 goes to AHC as hamilton_1_trough_60mL_Vb (the same Hamilton trough: AHC's model is 19 x 90 mm and 60 mL, VENUS's 20 x 90 mm and 63 mL in 8 connected positions)",
+      "diluent: VENUS's RGT_CONT_50ml_A00 goes to AHC as hamilton_1_trough_60mL_Vb (the same Hamilton trough: AHC's model is 19 x 90 mm and 60 mL, VENUS's 20 x 90 mm and 63 mL in 8 connected positions)"
+    ]
+  }
+}

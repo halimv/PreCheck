@@ -35,9 +35,25 @@ def next_stem(stem: str, healed: Path = HEALED) -> str:
     return stem
 
 
+class NotPassing(ValueError):
+    """The protocol does not pass the gate, so it is not written to healed/."""
+
+    def __init__(self, gate: Any):
+        super().__init__(f"not written: it fails {gate.stage}: {gate.summary}")
+        self.gate = gate
+
+
 def finish(protocol: Dict[str, Any], deck_config: Dict[str, Any], stem: str, rounds: List[Dict[str, Any]],
            status: str = "PASSED", healed: Path = HEALED, plugins: Optional[Path] = None) -> Dict[str, Any]:
-    """Write a passing protocol's files and return the report (also saved as <stem>_report.json)."""
+    """Write a passing protocol's files and return the report (also saved as <stem>_report.json).
+
+    Nothing is written unless the protocol passes the gate now: the compiler and the simulator on the instrument's
+    model, checked again here, whatever the caller's status says. A protocol that does not pass raises
+    NotPassing and leaves healed/ untouched."""
+    from pipeline.self_heal import SelfHealer
+    gate = SelfHealer(deck_config=deck_config, work_dir=str(healed.parent / "build" / "gate" / stem)).evaluate(protocol, 0)
+    if not gate.passed:
+        raise NotPassing(gate)
     healed.mkdir(exist_ok=True)
     ir_path, plr_path = healed / f"{stem}.json", healed / f"{stem}_plr.py"
     ir_path.write_text(json.dumps(protocol, indent=2))
@@ -66,3 +82,26 @@ def finish(protocol: Dict[str, Any], deck_config: Dict[str, Any], stem: str, rou
     }
     (healed / f"{stem}_report.json").write_text(json.dumps(report, indent=2))
     return report
+
+
+def result_summary(status: str, tiers: List[Dict[str, Any]], max_rounds: int, log: Path, protocol_name: str) -> str:
+    """The result of a run as the person reads it: passed or not, which models were tried and for how many rounds,
+    the last failure, and what was written. A protocol that did not pass writes nothing to healed/."""
+    passed = status in ("HEALED", "ALREADY_PASSING", "PASSED")
+    head = "PASSED: ready for AHC" if passed else "NOT READY: did not pass the simulator"
+    lines = [head, f"Protocol: {protocol_name}", "Repair models tried (up to %d rounds each):" % max_rounds]
+    for tier in tiers:
+        used = max(len(tier["rounds"]) - 1, 0)
+        lines.append(f"  {tier['model']:<20} {used} round(s): {tier['status']}")
+    rounds = tiers[-1]["rounds"] if tiers else []
+    lines += ["", "Final round:"]
+    if rounds:
+        last = rounds[-1]
+        verdict = "PASSED" if last.get("passed") else f"FAILED: {last.get('result', '')}"
+        lines.append(f"  round {last['round']}: {verdict}")
+    lines.append("")
+    if passed:
+        lines.append("Written to healed/: the protocol, its standalone script, the heal log, the AHC layout and the report.")
+    else:
+        lines.append("Written: nothing to healed/. The heal log is kept for review: " + str(log))
+    return "\n".join(lines)

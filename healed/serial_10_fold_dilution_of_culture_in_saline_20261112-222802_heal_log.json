@@ -1,0 +1,9 @@
+[
+  {
+    "round": 0,
+    "stage": "simulate",
+    "passed": true,
+    "result": "All 52 steps ran on the STAR device (simulated) with tip and volume tracking.",
+    "model": "claude-haiku-5-5"
+  }
+]

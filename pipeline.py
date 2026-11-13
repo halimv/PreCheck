@@ -42,10 +42,10 @@ import yaml
 from pipeline import diagnostics, proposals
 from pipeline.deck import DeckError, deck_config_for, load_deck_config
 from pipeline.design_review import render
-from pipeline.flow import finish, next_stem
+from pipeline.flow import NotPassing, finish, next_stem, result_summary
 from pipeline.instrument import InstrumentError, load_instrument
 from pipeline.instrument import use as use_ground_truth
-from pipeline.self_heal import CLAUDE_MODEL, SelfHealer, ir_diff, make_backend
+from pipeline.self_heal import CLAUDE_LADDER, CLAUDE_MODEL, SelfHealer, heal_with_ladder, ir_diff
 from pipeline.stage0_drafter import DraftError, draft, read_source, revise
 from pipeline.stage4_visualizer import visualize_protocol
 
@@ -83,28 +83,37 @@ def print_deck(d):
         print(f"  operator: {change}")
 
 
-def heal(protocol, protocol_file, deck_config, args, backend):
-    """Compile, simulate and repair `protocol` until it passes (at most --max-rounds repairs). Returns the
-    HealResult; the knowledge base hears about the run unless --no-record."""
+def heal(protocol, protocol_file, deck_config, args):
+    """Compile, simulate and repair `protocol` with a model ladder: Haiku first, then Sonnet and Opus, each given
+    --max-rounds rounds from where the last one stopped (one model only, with --model or --healer ollama). Returns
+    (result, tiers); the knowledge base hears about the run unless --no-record."""
     out_dir = Path(args.output) / protocol_file.stem
-    healer = SelfHealer(deck_config=deck_config, backend=backend, work_dir=str(out_dir), feedback_mode=args.feedback)
+    models = [args.model] if args.model or args.healer != "claude" else list(CLAUDE_LADDER)
     on = ("PyLabRobot's STAR model, configured as this instrument" if deck_config.get("instrument")
           else "the generic ChatterBox (the deck names no instrument)")
-    banner(f"Compile + simulate + self-healing with {backend.model}")
-    print(f"(simulating on {on}; feedback: {args.feedback}, max {args.max_rounds} repair rounds)")
-    result = healer.heal(protocol, max_rounds=args.max_rounds, escalate_after=args.escalate_after or None)
-    (out_dir / "heal_log.json").write_text(json.dumps(result.rounds, indent=2))
-    learned = [] if args.no_record else diagnostics.record_run(result.rounds, protocol_file.name, backend.model)
+    banner(f"Compile + simulate + self-healing with {' -> '.join(models)}")
+    print(f"(simulating on {on}; feedback: {args.feedback}, up to {args.max_rounds} repair rounds per model)")
+
+    def tier_done(tier):
+        print(f"\n[{tier['model']}] {tier['status']} after {max(len(tier['rounds']) - 1, 0)} round(s)")
+
+    result, tiers = heal_with_ladder(protocol, deck_config, str(out_dir), args.max_rounds, models=models,
+                                     healer=args.healer, feedback_mode=args.feedback,
+                                     escalate_after=args.escalate_after or None, on_tier=tier_done)
+    rounds = [dict(r, model=tier["model"]) for tier in tiers for r in tier["rounds"]]
+    (out_dir / "heal_log.json").write_text(json.dumps({"tiers": [{"model": x["model"], "status": x["status"]} for x in tiers],
+                                                       "rounds": rounds}, indent=2))
+    last = tiers[-1]["model"]
+    learned = [] if args.no_record else diagnostics.record_run(rounds, protocol_file.name, last)
     if learned:
         print(f"Recorded in {diagnostics.KNOWLEDGE_BASE.name}: {', '.join(sorted(set(learned)))}")
-    for p in [] if args.no_record else proposals.submit(result.proposals, protocol_file.name, backend.model):
+    for p in [] if args.no_record else proposals.submit(result.proposals, protocol_file.name, last):
         print(f"\nKnowledge-base proposal waiting for review:\n{proposals.describe(p)}\n"
               f"  approve: python -m pipeline.proposals approve {p['id']}   (or on the demo's Library page)")
     for c in result.proposals:
         if c["problems"]:
             print(f"\nProposal from round {c['evidence']['round']} not kept: {'; '.join(c['problems'])}")
-    print(f"\nResult: {result.status} after {len(result.rounds) - 1} repair round(s). Log: {out_dir / 'heal_log.json'}")
-    return result
+    return result, tiers
 
 
 async def watch_and_ask(protocol, deck_config, name, hints, visualize):
@@ -173,7 +182,7 @@ def main():
     parser.add_argument("--healer", choices=["claude", "ollama"], default="claude",
                         help="Who repairs a failing protocol: Claude through its CLI (default) or a local Ollama model")
     parser.add_argument("--model", default=None,
-                        help=f"Repair model (default {CLAUDE_MODEL} with --healer claude, qwen2.5-coder:7b with ollama)")
+                              help=f"One repair model only (default: {CLAUDE_MODEL}, then Sonnet, then Opus when the rounds run out)")
     parser.add_argument("--max-rounds", type=int, default=5, help="Maximum repair rounds per pass (default 5)")
     parser.add_argument(
         "--feedback", choices=["translated", "raw"], default="translated",
@@ -199,7 +208,6 @@ def main():
         deck_file = args.deck or load_instrument(instrument_module.DEFAULT_INSTRUMENT, ROOT)["deck_layout"]["file"]
     except (InstrumentError, OSError, KeyError, json.JSONDecodeError) as e:
         sys.exit(f"[ground truth] {e}")
-    backend = make_backend(args.healer, args.model)
     interactive = sys.stdin.isatty() and not args.yes
 
     previous = None  # the healed IR a revision starts from
@@ -244,21 +252,25 @@ def main():
             passing, rounds = protocol, []
         else:
             try:
-                result = heal(protocol, protocol_file, deck_config, args, backend)
+                result, tiers = heal(protocol, protocol_file, deck_config, args)
             except RuntimeError as e:
                 sys.exit(f"\n[self-healing] {e}")
+            print("\n" + result_summary(result.status, tiers, args.max_rounds,
+                                        Path(args.output) / stem / "heal_log.json", protocol_file.name))
             if result.status == "GAVE_UP":
-                print(f"\nNot ready: still failing after {args.max_rounds} repair rounds. The last failure is in the log; "
-                      "change the protocol text, or the request, and run again.")
                 sys.exit(1)
-            passing, rounds = result.protocol, result.rounds
+            passing = result.protocol
+            rounds = [dict(r, model=tier["model"]) for tier in tiers for r in tier["rounds"]]
             if result.status == "HEALED":
                 print("\nRepairs made to the draft:")
                 print(ir_diff(protocol, passing))
         if previous is not None:
             print(f"\nChanges from {previous_name} (your request, plus any repairs):")
             print(ir_diff(previous, passing) or "  (no step or volume changes)")
-        report = finish(passing, deck_config, stem, rounds, status=result.status if args.heal else "PASSED")
+        try:
+            report = finish(passing, deck_config, stem, rounds, status=result.status if args.heal else "PASSED")
+        except NotPassing as e:  # the gate says no: nothing is written
+            sys.exit(f"\n{e}")
         hints = report["suggestions"]
 
         banner("For your review")

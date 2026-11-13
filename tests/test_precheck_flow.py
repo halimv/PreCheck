@@ -12,7 +12,7 @@ import pytest
 
 from pipeline import ahc_export, design_review, self_heal
 from pipeline.deck import INSTRUMENT_DECK, build_deck, load_deck_config, reach
-from pipeline.instrument import simulation_backend
+from pipeline.instrument import firmware_configuration
 from pipeline.self_heal import ClaudeBackend, OllamaBackend, SelfHealer, make_backend
 from pipeline.stage2_compiler import compile_protocol
 from pipeline.venus_layout import position_checks, read_lay
@@ -33,22 +33,38 @@ def deck_config(protocol):
 
 # --- the dry-run backend is the instrument ---
 
-def test_a_deck_that_names_its_instrument_is_simulated_on_the_star_model(deck_config):
-    backend = simulation_backend(deck_config)
-    assert type(backend).__name__ == "STARChatterboxBackend"
-    assert backend.num_channels == 8
-    assert list(backend._channels_minimum_y_spacing) == [9.0] * 8  # the F553's own pitch, from its firmware file
+def test_a_deck_that_names_its_instrument_is_simulated_as_that_instrument(deck_config):
+    import asyncio
+    from pipeline.deck import build_deck
+    from pipeline.pipetting import close_device, mounted_channels, num_channels, open_device
+    firmware = firmware_configuration(deck_config)
+    assert firmware and firmware.endswith("starlet_F553_configuration.json")
+    deck, _ = build_deck(deck_config)
+
+    async def run():
+        dev = await open_device(deck, "chatterbox", firmware)
+        try:
+            return num_channels(dev), mounted_channels(dev), type(dev).__name__
+        finally:
+            await close_device(dev)
+
+    channels, mounted, kind = asyncio.run(run())
+    assert (channels, mounted, kind) == (8, [], "STARDevice")
 
 
-def test_a_deck_with_no_instrument_gets_the_generic_chatterbox(deck_config):
+def test_a_deck_with_no_instrument_has_no_firmware_to_answer(deck_config):
     plain = {k: v for k, v in deck_config.items() if k != "instrument"}
-    assert type(simulation_backend(plain)).__name__ == "LiquidHandlerChatterboxBackend"
+    assert firmware_configuration(plain) is None
 
 
-def test_the_healed_dilution_passes_on_the_star_model(protocol, deck_config, tmp_path):
+def test_the_healed_dilution_is_refused_by_the_piston_rule_on_the_star_model(protocol, deck_config, tmp_path):
+    # The STAR device enforces what a piston can push out (the legacy ChatterBox did not). The healed dilution
+    # aspirates 180 uL per channel and dispenses it in pieces, which the pistons cannot do as written: the gate
+    # must say so, rather than pass a run the instrument would refuse.
     gate = SelfHealer(deck_config, work_dir=str(tmp_path)).evaluate(protocol, 0)
-    assert gate.passed, gate.summary
-    assert "STARChatterboxBackend" in gate.summary
+    assert not gate.passed and gate.stage == "simulate"
+    assert gate.detail["error_code"] == "PISTON_TRAVEL", gate.summary
+    assert "piston holds" in gate.summary
 
 
 def test_every_height_on_the_instrument_deck_matches_venus():
@@ -66,7 +82,7 @@ def test_a_venus_trough_is_one_container_all_eight_channels_enter(deck_config):
     assert trough.max_volume == pytest.approx(63000)
     assert len(trough.venus_access_y) == 8
     extra = reach(trough, list(range(8)))
-    assert extra["spread"] == "custom" and len(extra["offsets"]) == 8
+    assert "spread" not in extra and len(extra["offsets"]) == 8  # the offsets are all the device needs
     ys = [o.y for o in extra["offsets"]]
     assert ys == sorted(ys, reverse=True)  # channel 1 at the rear
     assert ys[3] - ys[4] == pytest.approx(14.5)  # the wall across the trough's middle

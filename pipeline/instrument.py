@@ -18,7 +18,7 @@ import functools
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pylabrobot.resources as plr
 from pylabrobot.legacy.liquid_handling.backends import STARBackend
@@ -115,49 +115,15 @@ def real_deck_layout(instrument: Dict[str, Any], root: Path = ROOT) -> Path:
     return root / instrument["deck_layout"]["file"]
 
 
-# --- The instrument as a simulation backend ---
+# --- The instrument as the simulated device ---
 
-_FIRMWARE_NAMES = {  # PyLabRobot's configuration field -> the firmware configuration's key, where they differ
-    "auto_load_installed": "autoload_installed", "auto_load_size_slots": "autoload_size_slots",
-    "ka_core_96_head_installed": "head96_installed", "core_96_head_installed": "head96_installed",
-    "dispensing_head_384_installed": "head384_installed", "workspace_range": "workspace_x_range",
-}
-
-
-def _configured(klass: type, firmware: Dict[str, Any], **extra: Any) -> Any:
-    """`klass` (one of PyLabRobot's STAR configuration dataclasses) filled from the firmware configuration: every
-    field the firmware reports is the instrument's, the rest keep PyLabRobot's defaults."""
-    import dataclasses
-    values = {}
-    for f in dataclasses.fields(klass):
-        value = firmware.get(_FIRMWARE_NAMES.get(f.name, f.name))
-        if value is not None and not isinstance(value, dict):
-            values[f.name] = tuple(value) if isinstance(value, list) else value
-    return klass(**{**values, **extra})
-
-
-def simulation_backend(deck_config: Dict[str, Any], root: Path = ROOT):
-    """The backend a dry run uses. For a deck that names its instrument it is PyLabRobot's STAR model
-    (STARChatterboxBackend: the real backend's checks and firmware commands, with nothing sent) configured as
-    that instrument reports itself: its channels, their minimum pitch, the 96 head, iSWAP, autoload, deck size
-    and tip waste. A deck that names no instrument gets the generic ChatterBox."""
-    from pylabrobot.legacy.liquid_handling.backends import LiquidHandlerChatterboxBackend
+def firmware_configuration(deck_config: Dict[str, Any], root: Path = ROOT) -> Optional[str]:
+    """The instrument's firmware report, which the simulated STAR device answers as this instrument does (its
+    channels, the 96 head, iSWAP, autoload, deck size, tip waste). None for a deck that names no instrument."""
     if not deck_config.get("instrument"):
-        return LiquidHandlerChatterboxBackend(num_channels=8)
-    from pylabrobot.legacy.liquid_handling.backends.hamilton.STAR_backend import (
-        DriveConfiguration, ExtendedConfiguration, MachineConfiguration)
-    from pylabrobot.legacy.liquid_handling.backends.hamilton.STAR_chatterbox import STARChatterboxBackend
-
+        return None
     instrument = load_instrument(deck_config["instrument"], root)
-    firmware = json.loads((root / instrument["firmware_configuration"]).read_text())["device"]
-    arm = lambda side: _configured(DriveConfiguration, firmware[side]) if firmware.get(side) else None  # noqa: E731
-    n = instrument["channels"]["count"]
-    return STARChatterboxBackend(
-        num_channels=n,
-        machine_configuration=_configured(MachineConfiguration, firmware),
-        extended_configuration=_configured(ExtendedConfiguration, firmware, left_x_drive=arm("left_arm"),
-                                           right_x_drive=arm("right_arm")),
-        channels_minimum_y_spacing=[float(instrument["channels"]["min_pitch_mm"])] * n)
+    return str(root / instrument["firmware_configuration"])
 
 
 def use(instrument: str = None, labware: str = None) -> None:

@@ -392,7 +392,24 @@ async function abortExecution() {
 
 $("run-form").addEventListener("submit", startExecution);
 $("abort").addEventListener("click", abortExecution);
+async function replayProtocol() {
+  if (!state.detail) return;
+  const tab = window.open("", "_blank");
+  $("deck-note").textContent = "Relaunching the 3D viewer and replaying the protocol…";
+  try {
+    const res = await fetch(`/api/healed/${encodeURIComponent(state.detail.name)}/replay`, { method: "POST" });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.statusText);
+    if (tab) tab.location.href = body.url; else window.open(body.url, "_blank");
+    $("deck-note").textContent = `Replaying ${body.steps} steps in a new tab (about ${body.steps} s).`;
+  } catch (err) {
+    if (tab) tab.close();
+    $("deck-note").textContent = `Could not replay: ${err.message}`;
+  }
+}
+
 $("open-deck").addEventListener("click", openDeck);
+$("replay").addEventListener("click", replayProtocol);
 $("lay-file").addEventListener("change", uploadLayout);
 $("pi-refresh").addEventListener("click", () => loadRemote());
 $("pi-sync").addEventListener("click", () => loadRemote("/api/remote/sync", { method: "POST" }));

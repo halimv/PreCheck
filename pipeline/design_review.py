@@ -48,7 +48,7 @@ def _add(mix: Mix, other: Mix) -> None:
         mix[k] = mix.get(k, 0.0) + v
 
 
-def _trace(protocol: Dict[str, Any], kinds: Dict[str, str]) -> Tuple[Dict[Any, Mix], Dict[str, float]]:
+def trace_mixtures(protocol: Dict[str, Any], kinds: Dict[str, str]) -> Tuple[Dict[Any, Mix], Dict[str, float]]:
     """Follow every microliter through the steps. Returns ({container: mixture}, {labware: uL drawn}); a plate's
     containers are (labware, column, row), anything else is its labware name."""
     names = protocol.get("reagents", {})
@@ -94,7 +94,7 @@ def review(protocol: Dict[str, Any], deck_config: Dict[str, Any], root: Path = R
     limits = labware_limits(deck_config, root).get("plates", {})
     carriers = {c["name"]: c for c in deck_config["carriers"]}
     used = {s.get("labware") for s in protocol.get("steps", [])}
-    where, drawn = _trace(protocol, kinds)
+    where, drawn = trace_mixtures(protocol, kinds)
 
     labware = []
     for lid, spec in deck_config["labware"].items():
@@ -200,7 +200,7 @@ def suggestions(protocol: Dict[str, Any], deck_config: Dict[str, Any], root: Pat
         i += len(run)
 
     # 2. A reagent loaded far beyond what the plan draws.
-    _, drawn = _trace(protocol, kinds)
+    _, drawn = trace_mixtures(protocol, kinds)
     for lid, loaded in (protocol.get("initial_volumes_ul") or {}).items():
         needed = drawn.get(lid, 0.0)
         enough = math.ceil(needed * 1.2 / 50) * 50  # 20% over, rounded up to 50 uL

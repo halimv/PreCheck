@@ -34,13 +34,12 @@ import threading
 import time
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
-from pylabrobot.legacy.liquid_handling import LiquidHandler
-from pylabrobot.legacy.liquid_handling.backends import LiquidHandlerChatterboxBackend, STARBackend
 from pylabrobot.resources import set_tip_tracking, set_volume_tracking
 
 from pipeline import deck as deck_module
 from pipeline.deck import build_deck, machines
-from pipeline.instrument import simulation_backend
+from pipeline.instrument import firmware_configuration
+from pipeline.pipetting import close_device, mounted_channels, open_device, return_tips
 from pipeline.stage2_compiler import DEVICE_ACTIONS, translate_step, venus_troughs
 
 BACKENDS = ("star", "chatterbox")
@@ -108,28 +107,27 @@ class HardwareExecutor:
         set_tip_tracking(True)
         set_volume_tracking(True)
         deck, res = build_deck(self.deck_config, protocol.get("initial_volumes_ul"))
-        backend = STARBackend() if self.backend == "star" else simulation_backend(self.deck_config)
-        lh = LiquidHandler(backend=backend, deck=deck)
+        lh = None
         started = time.time()
         done = 0
         self.emit("status", {"message": "Connecting to the STARlet and initializing (this can take a minute)..."
                              if self.backend == "star" else "Starting the ChatterBox rehearsal...",
                              "total": len(steps), "mode": mode, "backend": self.backend})
         try:
-            await lh.setup()
+            lh = await open_device(deck, self.backend, firmware_configuration(self.deck_config))
             for machine in machines(res):
                 await machine.setup()
             self.emit("status", {"message": "Instrument ready.", "total": len(steps)})
             for step, fn in zip(steps, compiled):
                 if self._abort.is_set():
-                    mounted = [ch for ch in range(lh.backend.num_channels) if lh.head[ch].has_tip]
+                    mounted = mounted_channels(lh)
                     self.emit("aborted", {"after_step": done, "total": len(steps), "tips_mounted": mounted})
                     return {"status": "ABORTED", "steps_done": done}
                 self.emit("step", {"step": step["step"], "total": len(steps), "action": step["action"],
                                    "description": step.get("description", "")})
                 t0 = time.time()
                 if fn is None:  # return_tips (tip check only)
-                    await lh.return_tips(use_channels=step.get("channels"))
+                    await return_tips(lh, use_channels=step.get("channels"))
                 else:
                     await fn(lh, res)
                 done += 1
@@ -144,7 +142,8 @@ class HardwareExecutor:
         finally:
             for machine in machines(res):
                 await machine.stop()
-            await lh.stop()
+            if lh is not None:
+                await close_device(lh)
 
 
 # --- Remote runs: the machine the STARlet's USB cable is plugged into (see the module docstring) ---

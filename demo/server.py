@@ -59,7 +59,7 @@ OLLAMA = "http://localhost:11434"
 UPLOADS = WORK / "uploads"
 CLAUDE_MODELS = [CLAUDE_MODEL, "claude-sonnet-5-5", "claude-opus-5-5"]  # repair models offered; the first is the default
 MAX_SOURCE_BYTES = 20 * 1024 * 1024
-REPLAY_STEP_DELAY_S = 0.4
+REPLAY_STEP_DELAY_S = 1.0  # seconds after each pipetting call, so the viewer can be followed (about 90 s for a 91-step protocol)
 
 app = Flask(__name__, static_folder=str(Path(__file__).parent / "static"), static_url_path="/static")
 
@@ -188,7 +188,9 @@ VIS: Dict[str, Optional[VisualizerSession]] = {"session": None}
 
 async def _replay_logged(session: VisualizerSession, protocol: Dict[str, Any]) -> None:
     try:
-        await replay(session, protocol, deck_config_for(protocol, ROOT), step_delay_s=REPLAY_STEP_DELAY_S)
+        # Wait up to a minute for the viewer tab to connect, so the replay is watched from its first step.
+        await replay(session, protocol, deck_config_for(protocol, ROOT), step_delay_s=REPLAY_STEP_DELAY_S,
+                     wait_for_browser_s=60.0)
     except Exception as e:
         print(f"[stage 4] replay stopped: {type(e).__name__}: {e}")
 
@@ -434,6 +436,25 @@ def healed_setup(name: str):
         "real_deck": _real_deck_view(protocol, deck_config),
         "instrument_layout": _instrument_layout_id(deck_config),
     })
+
+
+@app.post("/api/healed/<name>/replay")
+def replay_healed(name: str):
+    """Relaunch PyLabRobot's 3D viewer on a healed protocol and replay it (one pipetting step at a time, slowly). Only a
+    protocol that passes the gate now is replayed."""
+    path = _healed_path(name)
+    protocol = json.loads(path.read_text())
+    gate = _gate(protocol, path.stem)
+    if not gate["passed"]:
+        return jsonify({"error": f"Not replayed: the protocol no longer passes the simulator ({gate['summary']})."}), 409
+    name_shown = f"{path.stem} ({len(protocol['steps'])} steps)"
+    try:
+        url = asyncio.run_coroutine_threadsafe(
+            _open_visualizer(protocol, name_shown, run_steps=True, deck_config=deck_config_for(protocol, ROOT)),
+            VIS_LOOP).result(timeout=30)
+    except Exception as e:
+        return jsonify({"error": f"Could not start the visualizer: {type(e).__name__}: {e}"}), 500
+    return jsonify({"url": url, "steps": len(protocol["steps"])})
 
 
 @app.post("/api/healed/<name>/deck")

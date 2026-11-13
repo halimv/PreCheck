@@ -5,7 +5,7 @@ self-healing loop never write Python; they edit the IR, and this compiler turns 
 
 Generated module contract:
     async def run_protocol(lh, res) -> None
-        lh:  pylabrobot LiquidHandler, already set up (backend chosen by stage 3/4)
+        lh:  the device, already set up (pipeline/pipetting.py: the STAR device, or the legacy LiquidHandler)
         res: dict of protocol labware ID -> PLR resource (built by pipeline/deck.py)
 
 Each IR step becomes one or more statements preceded by a `# step N: ...` comment, so stage 3
@@ -48,7 +48,7 @@ def translate_step(step: Dict[str, Any], kinds: Dict[str, str], troughs: frozens
     if action not in ACTIONS:
         raise CompilationError(f"Step {n}: unknown action '{action}'. Supported: {', '.join(ACTIONS)}.")
     if action == "tips_off":
-        return "await lh.discard_tips()"
+        return "await tips_off(lh)"
     if labware not in kinds:
         raise CompilationError(f"Step {n}: labware '{labware}' is not on the deck.")
     if any(not isinstance(ch, int) or not 0 <= ch < len(ROWS) for ch in channels):
@@ -64,7 +64,7 @@ def translate_step(step: Dict[str, Any], kinds: Dict[str, str], troughs: frozens
             raise CompilationError(f"Step {n}: tips_on needs a tip rack, '{labware}' is a {kind}.")
         if "column" not in step:
             raise CompilationError(f"Step {n}: tips_on needs a 'column'.")
-        return f"await lh.pick_up_tips({_spots(labware, step['column'], channels)}, use_channels={channels})"
+        return f"await tips_on(lh, {_spots(labware, step['column'], channels)}, use_channels={channels})"
 
     if "volume_ul" not in step:
         raise CompilationError(f"Step {n}: {action} needs 'volume_ul'.")
@@ -78,7 +78,7 @@ def translate_step(step: Dict[str, Any], kinds: Dict[str, str], troughs: frozens
     else:
         raise CompilationError(f"Step {n}: cannot {action} on a {kind} ('{labware}').")
     where = f', **reach(res["{labware}"], {channels})' if labware in troughs else ""  # VENUS's channel positions
-    return f"await lh.{action}({targets}, vols={vols}, use_channels={channels}{where})"
+    return f"await {action}(lh, {targets}, vols={vols}, use_channels={channels}{where})"
 
 
 def _number(step: Dict[str, Any], key: str, minimum: float = 0) -> float:
@@ -118,8 +118,8 @@ def _empty_step(step: Dict[str, Any], kind: str, kinds: Dict[str, str]) -> str:
     return "\n".join([
         f"_wells = {_spots(labware, step['column'], channels)}",
         "_vols = [w.tracker.get_used_volume() for w in _wells]",
-        f"await lh.aspirate(_wells, vols=_vols, use_channels={channels})",
-        f'await lh.dispense([res["{waste}"]] * {len(channels)}, vols=_vols, use_channels={channels})',
+        f"await aspirate(lh, _wells, vols=_vols, use_channels={channels})",
+        f'await dispense(lh, [res["{waste}"]] * {len(channels)}, vols=_vols, use_channels={channels})',
     ])
 
 
@@ -135,6 +135,7 @@ def compile_protocol(protocol: Dict[str, Any], deck_config: Dict[str, Any]) -> s
     troughs = venus_troughs(deck_config)
     if any(s.get("labware") in troughs and s.get("action") in ("aspirate", "dispense") for s in protocol.get("steps", [])):
         lines.append("from pipeline.deck import reach")
+    lines.append("from pipeline.pipetting import aspirate, dispense, tips_off, tips_on")
     lines += ["", "async def run_protocol(lh, res):"]
     for step in protocol.get("steps", []):
         desc = step.get("description") or f"{step.get('action')} {step.get('labware', '')}".strip()
@@ -158,19 +159,16 @@ INITIAL_VOLUMES_UL = {volumes!r}
 
 
 async def _main(backend_name):
-    from pylabrobot.legacy.liquid_handling import LiquidHandler
-    from pylabrobot.legacy.liquid_handling.backends import LiquidHandlerChatterboxBackend, STARBackend
     from pylabrobot.resources import set_tip_tracking, set_volume_tracking
     from pipeline.deck import build_deck, load_deck_config, machines
-    from pipeline.instrument import simulation_backend
+    from pipeline.instrument import firmware_configuration
+    from pipeline.pipetting import close_device, open_device
 
     set_tip_tracking(True)
     set_volume_tracking(True)
     deck_config = load_deck_config(str(Path(__file__).resolve().parents[1] / DECK_CONFIG))
     deck, res = build_deck(deck_config, INITIAL_VOLUMES_UL)
-    backend = STARBackend() if backend_name == "star" else simulation_backend(deck_config)
-    lh = LiquidHandler(backend=backend, deck=deck)
-    await lh.setup()
+    lh = await open_device(deck, backend_name, firmware_configuration(deck_config))
     for machine in machines(res):
         await machine.setup()
     try:
@@ -178,7 +176,7 @@ async def _main(backend_name):
     finally:
         for machine in machines(res):
             await machine.stop()
-        await lh.stop()
+        await close_device(lh)
 
 
 if __name__ == "__main__":

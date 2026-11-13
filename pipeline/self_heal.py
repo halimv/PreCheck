@@ -16,7 +16,7 @@ import re
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from pipeline import proposals
 from pipeline.diagnostics import rejection_kind
@@ -123,7 +123,8 @@ waste. Wells may go to 0 uL. The tips count as having aspirated from that column
 - Tips must be off before incubate or shake. The heater-shaker can heat but cannot actively cool.
 - Repairs must keep every heated incubate and every shake at its original temperature, speed and \
 total time. Room-temperature incubates may be added or lengthened (for example to let the plate cool) \
-but not shortened or removed.
+but not shortened or removed. Every plate well must end with the same volume and reagents as the plan: you may \
+split, merge or reorder the transfers, and draw a little air with the liquid, but not change what goes where.
 """
 
 
@@ -201,6 +202,34 @@ def _json_object(text: str) -> Dict[str, Any]:
     if start < 0 or end <= start:
         raise ValueError(f"The model's reply holds no JSON object: {text[:200]!r}")
     return json.loads(text[start:end + 1])
+
+
+# The repair models in the order they are tried: the default first. When a model's rounds run out, the next,
+# better one takes over from where it stopped (the repairs it made are kept; the experiment's intent is not).
+CLAUDE_LADDER = ("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5")
+
+
+def heal_with_ladder(protocol: Dict[str, Any], deck_config: Dict[str, Any], work_dir: str, max_rounds: int,
+                     models: Sequence[str] = CLAUDE_LADDER, healer: str = "claude", feedback_mode: str = "translated",
+                     escalate_after: Optional[int] = None,
+                     on_tier: Optional[Callable[[Dict[str, Any]], None]] = None) -> Tuple["HealResult", List[Dict[str, Any]]]:
+    """Repair with each model in turn, `max_rounds` rounds each, until one passes. Returns the last result and one
+    entry per model tried: {"model", "status", "rounds"}. `on_tier` is called as each model finishes."""
+    current = copy.deepcopy(protocol)
+    tiers: List[Dict[str, Any]] = []
+    result = None
+    for model in models:
+        healer_obj = SelfHealer(deck_config=deck_config, backend=make_backend(healer, model), work_dir=work_dir,
+                                feedback_mode=feedback_mode)
+        result = healer_obj.heal(current, max_rounds=max_rounds, escalate_after=escalate_after, intent_of=protocol)
+        tier = {"model": model, "status": result.status, "rounds": result.rounds}
+        tiers.append(tier)
+        if on_tier:
+            on_tier(tier)
+        current = result.protocol
+        if result.status != "GAVE_UP":
+            break
+    return result, tiers
 
 
 def make_backend(healer: str = "claude", model: Optional[str] = None):
@@ -361,57 +390,63 @@ class SelfHealer:
             )
         return GateResult("simulate", False, sim.message, feedback=feedback, step=d["step"], detail=d)
 
-    def _transfers(self, protocol: Dict[str, Any]) -> Dict[Tuple, float]:
-        """The experiment's fingerprint: total volume each channel aspirates/dispenses at each location,
-        how many times each channel empties each plate column, and the total hold time of each device
-        condition (plate, temperature, speed)."""
-        totals: Dict[Tuple, float] = {}
+    def _transfers(self, protocol: Dict[str, Any]) -> Dict[Tuple, Any]:
+        """The experiment's fingerprint: what ends up in every plate well (its volume and each reagent's volume, from
+        design_review's trace of every microliter), and the total hold time of each device condition (plate,
+        temperature, speed). Repairs may restructure the steps; they may not change any of these."""
+        from pipeline.design_review import trace_mixtures
 
-        def add(key: Tuple, amount: float) -> None:
-            totals[key] = round(totals.get(key, 0.0) + amount, 3)
-
+        totals: Dict[Tuple, Any] = {}
         for s in protocol["steps"]:
             action = s.get("action")
             if action in ("incubate", "shake"):
-                add((action, s.get("labware"), s.get("temperature_c"), s.get("speed_rpm")), float(s.get("duration_s", 0)))
-                continue
-            if action not in ("aspirate", "dispense", "empty"):
-                continue
-            kind = self.labware_kinds.get(s.get("labware"))
-            where = (s.get("labware"), s.get("column") if kind == "plate" else None)
-            for ch in s.get("channels", [0]):
-                add((action, *where, ch), 1.0 if action == "empty" else float(s.get("volume_ul", 0)))
+                key = (action, s.get("labware"), s.get("temperature_c"), s.get("speed_rpm"))
+                totals[key] = round(totals.get(key, 0.0) + float(s.get("duration_s", 0)), 3)
+        where, _ = trace_mixtures(protocol, self.labware_kinds)
+        for container, mixture in where.items():
+            if not isinstance(container, tuple):
+                continue  # only plate wells are the experiment's result; sources and waste may differ with air
+            labware, column, row = container
+            volume = round(sum(mixture.values()), 3)
+            if volume > 0:
+                totals[("well", labware, column, row, "volume")] = volume
+                for reagent, ul in mixture.items():
+                    if ul > 1e-9:
+                        totals[("well", labware, column, row, reagent)] = round(ul, 3)
         return totals
 
     @staticmethod
-    def _intent_violations(baseline: Dict[Tuple, float], candidate: Dict[Tuple, float]) -> List[str]:
+    def _intent_violations(baseline: Dict[Tuple, Any], candidate: Dict[Tuple, Any]) -> List[str]:
+        """What a repair changed about the experiment: each hold whose time changed, and each well whose volume or
+        reagent amount changed (beyond rounding). Restructuring that leaves every well as planned is fine."""
         changed = []
         for key in sorted(set(baseline) | set(candidate), key=str):
             before, after = baseline.get(key, 0.0), candidate.get(key, 0.0)
-            if before == after:
+            if abs(before - after) <= max(0.01, 0.001 * max(abs(before), abs(after))):
+                continue
+            if key[0] == "well":
+                _, labware, column, row, what = key
+                place = f"{labware} column {column} row {ROWS[row] if isinstance(row, int) and row < 8 else row}"
+                if what == "volume":
+                    changed.append(f"{place} ends with {before:g} -> {after:g} uL")
+                else:
+                    changed.append(f"{place} holds {before:g} -> {after:g} uL of {what}")
                 continue
             action, labware, a, b = key
             if action == "incubate" and a is None and after > before:
                 continue  # extra room-temperature hold, e.g. to let the plate cool
-            if action in ("incubate", "shake"):
-                cond = f"{a:g} C" if a is not None else "room temperature"
-                if b is not None:
-                    cond += f", {b:g} rpm"
-                changed.append(f"{action} {labware} at {cond}: {before:g} -> {after:g} s")
-            else:
-                where = f"{labware} column {a}" if a is not None else labware
-                unit = " time(s)" if action == "empty" else " uL"
-                changed.append(f"channel {b} {action} at {where}: {before:g} -> {after:g}{unit}")
+            cond = f"{a:g} C" if a is not None else "room temperature"
+            if b is not None:
+                cond += f", {b:g} rpm"
+            changed.append(f"{action} {labware} at {cond}: {before:g} -> {after:g} s")
         return changed
 
     @staticmethod
     def _intent_error(changed: List[str]) -> str:
         shown = "; ".join(changed[:3]) + ("; ..." if len(changed) > 3 else "")
-        if any(c.startswith(("incubate", "shake")) for c in changed):
-            return (f"the edit changes the experiment ({shown}). A repair must keep every channel's total "
-                    "aspirated and dispensed volumes, every empty, and every heated or shaken hold the same")
-        return (f"the edit changes how much liquid is moved ({shown}). A repair must keep every channel's total "
-                "aspirated and dispensed volumes the same; load more reagent instead of moving less")
+        return (f"the edit changes the experiment ({shown}). A repair may restructure the steps (split, merge, reorder, "
+                "air in the tip), but every plate well must end with the same volume and reagents, and every heated or "
+                "shaken hold must keep its time")
 
     def _prompt(self, protocol: Dict[str, Any], gate: GateResult, history: List[str]) -> str:
         deck = "\n".join(f"- {lid} ({spec['kind']})" for lid, spec in self.deck_config["labware"].items())
@@ -457,8 +492,8 @@ class SelfHealer:
             f"Raw PyLabRobot error: {d['raw_error']}",
             "Already tried for this failure:\n" + "\n".join(f"- {t}" for t in tried),
             "Work out the physical cause yourself and propose edits that fix it. The harness rules still hold: "
-            f"edit only step {gate.step} and/or use set_initial_volume, and keep every channel's total aspirated "
-            "and dispensed volumes the same.",
+            f"edit only step {gate.step} and/or use set_initial_volume, and leave every plate well with the same "
+            "volume and reagents as the plan.",
             "Also propose a change to the knowledge base in \"knowledge_proposal\", so the next protocol with this "
             "failure is fixed the first time. A scientist reviews it before it is used.",
             ('- kind: "new_entry" (this error has no entry yet).' if unrecognized else
@@ -479,8 +514,10 @@ class SelfHealer:
         max_rounds: int = 5,
         on_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
         escalate_after: Optional[int] = None,
+        intent_of: Optional[Dict[str, Any]] = None,
     ) -> HealResult:
-        """Run the repair loop. `on_event(kind, data)`, if given, is called as each round progresses:
+        """Run the repair loop. `intent_of`, if given, is the protocol the experiment is judged against (the plan as
+        first drafted), so a later pass of a model ladder still keeps the original intent. `on_event(kind, data)`, if given, is called as each round progresses:
         "gate" (stages 1-3 result), "escalate", "model_request", "model_reply" and "edits" (accepted
         or rejected).
 
@@ -503,7 +540,7 @@ class SelfHealer:
 
         # Intent guard: a repair may restructure steps, but every channel must still move the same
         # total volume from and to the same places as in the original plan.
-        baseline = self._transfers(protocol)
+        baseline = self._transfers(intent_of if intent_of is not None else protocol)
         system = SYSTEM_PROMPT
         if any(s.get("action") in EXTENDED_ACTIONS for s in protocol["steps"]):
             system += EXTENDED_PROMPT

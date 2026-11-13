@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from pylabrobot.legacy.liquid_handling.errors import ChannelizedError, ChannelsDoNotFitError
+from pipeline.pipetting import mounted_channels, num_channels
 from pylabrobot.resources.errors import (
     CrossContaminationError,
     HasTipError,
@@ -55,7 +56,7 @@ def planned_aspirate_ul(protocol: Dict[str, Any], labware: str) -> float:
 def capture_state(lh, res: Dict[str, Any], deck_config: Dict[str, Any], step: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Snapshot the parts of the deck relevant to diagnosing a failure."""
     state: Dict[str, Any] = {
-        "tips_mounted": {ch: lh.head[ch].has_tip for ch in range(lh.backend.num_channels)},
+        "tips_mounted": {ch: ch in mounted_channels(lh) for ch in range(num_channels(lh))},
         "container_volumes_ul": {},
         "unused_tip_columns": {},
     }
