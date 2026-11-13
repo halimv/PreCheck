@@ -1,18 +1,18 @@
-# PreCheck: modular design plan
+# precheck: modular design plan
 
-Notes for designing the PreCheck Claude plugin/skill. Status as of this write-up: the PyLabRobot upgrade is done locally; the modular refactor has not started.
+Notes for designing the precheck Claude plugin/skill. Status as of this write-up: the PyLabRobot upgrade is done locally; the modular refactor has not started.
 
 ## Current state
 
-- **PyLabRobot.** PreCheck now pins PyLabRobot 1.0.0b1 at commit `6262d633394cecb76673f31c79f10cb0ab2fa001`, the build AHC pins. All 120 tests pass on it. Not yet committed.
+- **PyLabRobot.** precheck now pins PyLabRobot 1.0.0b1 at commit `6262d633394cecb76673f31c79f10cb0ab2fa001`, the build AHC pins. All 120 tests pass on it. Not yet committed.
 - **Raspberry Pi has two environments, and they disagree.**
   - `~/ahc/.venv`: PyLabRobot 1.0.0b1 (the AHC bridge; this is what ran the recent AHC test).
-  - `~/llnl_capstone/.venv`: PyLabRobot 0.2.2 (what PreCheck's `pi:star` path uses via `pipeline/remote.py`). It must be upgraded to the same commit before any PreCheck run through the Pi.
+  - `~/llnl_capstone/.venv`: PyLabRobot 0.2.2 (what precheck's `pi:star` path uses via `pipeline/remote.py`). It must be upgraded to the same commit before any precheck run through the Pi.
 - **Tip rack height is not verified.** In PyLabRobot 1.0.0b1 a 300 uL filter rack seats at Z 108.95 inside a carrier site whose surface is at Z 114.95, and its A1 well sits at 116.45. VENUS's carrier file (`config/Labware/ML_STAR/TIP_CAR_480_A00.tml`) gives the site at 114.95, and the test compares only site positions. Nothing in the config files states how VENUS seats the rack or where it picks up tips, so the 6 mm seating offset has not been checked against VENUS.
 
 ## Goal
 
-PreCheck should be modular, and both simulation and real execution should take their geometry from the ground-truth files in `config/`: the VENUS labware library in `config/Labware` and the system deck in `config/instrument`. Nothing about the deck should be typed by hand for a real run.
+precheck should be modular, and both simulation and real execution should take their geometry from the ground-truth files in `config/`: the VENUS labware library in `config/Labware` and the system deck in `config/instrument`. Nothing about the deck should be typed by hand for a real run.
 
 ## Proposed structure
 

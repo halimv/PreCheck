@@ -1,6 +1,6 @@
-"""Setting PreCheck up: the plugin's own requirements, and the working folder a task runs in.
+"""Setting precheck up: the plugin's own requirements, and the working folder a task runs in.
 
-`precheck --setup` (run it in the task folder) checks what PreCheck needs and makes the folders a run writes into:
+`precheck --setup` (run it in the task folder) checks what precheck needs and makes the folders a run writes into:
 healed/, drafts/, decks/, build/ and knowledge/ (the knowledge base, copied from the plugin's seed). Nothing else is
 created. Installing the plugin can't do the folder part, because a working folder is a task folder the scientist
 chooses; the first setup in that folder does it, and every run also creates whatever it needs on the way.
@@ -16,7 +16,7 @@ FOLDERS = (paths.HEALED, paths.DRAFTS, paths.DECKS, paths.BUILD, paths.WORK / "r
 
 
 def checks() -> List[Tuple[str, bool, str]]:
-    """(check, passed, what to do) for everything PreCheck needs."""
+    """(check, passed, what to do) for everything precheck needs."""
     venus = paths.PLUGIN / "config" / "Labware"
     venus_ok = (venus / "ML_STAR").is_dir()
     instrument = paths.PLUGIN / "config" / "instrument" / "starlet_F553.json"
@@ -31,11 +31,11 @@ def checks() -> List[Tuple[str, bool, str]]:
         ("Claude Code CLI (drafting and repairs)", claude is not None,
          "Install it with `npm install -g @anthropic-ai/claude-code`, then run `claude` once to log in."
          if claude is None else claude),
-        ("uv (installs PreCheck's Python packages)", uv is not None,
+        ("uv (installs precheck's Python packages)", uv is not None,
          "Install uv (https://docs.astral.sh/uv/), or set PRECHECK_PYTHON to a Python that has the packages."
          if uv is None else uv),
         ("working folder writable", writable,
-         str(paths.WORK) if writable else f"{paths.WORK} is not writable; run PreCheck from a folder you own."),
+         str(paths.WORK) if writable else f"{paths.WORK} is not writable; run precheck from a folder you own."),
     ]
 
 
@@ -59,7 +59,7 @@ def setup() -> List[Tuple[str, bool, str]]:
 
 
 def report(results: List[Tuple[str, bool, str]]) -> str:
-    lines = [f"PreCheck working folder: {paths.WORK}", f"PreCheck plugin folder:  {paths.PLUGIN}", ""]
+    lines = [f"precheck working folder: {paths.WORK}", f"precheck plugin folder:  {paths.PLUGIN}", ""]
     for name, passed, detail in results:
         lines.append(f"  [{'ok' if passed else 'missing'}] {name}: {detail}")
     folders = [f"{f.name}/" for f in FOLDERS + (paths.KNOWLEDGE.parent,) if f.exists()]

@@ -1,4 +1,4 @@
-// Runs page: every check PreCheck has made in this folder, with its summary, its provenance, and the review items a
+// Runs page: every check precheck has made in this folder, with its summary, its provenance, and the review items a
 // person acknowledges with a typed name. Read-only except for those acknowledgements.
 
 const $ = (id) => document.getElementById(id);

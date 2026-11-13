@@ -3,14 +3,14 @@ name: precheck
 description: Turn a liquid-handling protocol (a PDF, a text file, or a description in words) into a protocol that has been checked and repaired against the lab's Hamilton STARlet, then review it with the scientist and test it in AHC's simulator. Use when someone wants to draft, check, heal, simulate or revise a protocol for the STARlet, asks whether a protocol will run on the robot, or wants a protocol prepared before handing it to AHC.
 ---
 
-# PreCheck
+# precheck
 
-PreCheck takes a protocol and returns one that passes on a model of the lab's own instrument. It drafts the steps,
+precheck takes a protocol and returns one that passes on a model of the lab's own instrument. It drafts the steps,
 chooses real labware from the lab's VENUS library, places it on the deck that is on the STARlet, runs the result on
 PyLabRobot's STAR model configured from the instrument's firmware file, and repairs what fails. Nothing is sent to a
 robot. A protocol that does not pass is never written as ready.
 
-The command is `precheck` (the launcher in this plugin's `bin/`; `precheck --root` prints the PreCheck folder that
+The command is `precheck` (the launcher in this plugin's `bin/`; `precheck --root` prints the precheck folder that
 every relative path in its output is inside).
 
 ## 0. Set up the folder (once per task folder)
@@ -21,7 +21,7 @@ If the task folder has no `healed/` folder yet, run this first:
 precheck --setup
 ```
 
-It checks what PreCheck needs (the VENUS labware library, the Claude CLI, uv, and that the folder is writable) and
+It checks what precheck needs (the VENUS labware library, the Claude CLI, uv, and that the folder is writable) and
 creates the folders a run writes into. If an item is marked missing, tell the scientist what it says and stop.
 
 ## 1. Check the protocol
@@ -74,7 +74,7 @@ precheck --protocol <files.ir> --visualize
 Before the scientist decides, run the accepted protocol on AHC in simulate mode, using the AHC `lab-hardware`
 skill. Simulate mode only: never a real robot in this step.
 
-1. Copy `<files.ahc_layout>` into the task folder's `.ahc/layouts/` (the PreCheck folder has its own `.ahc/`).
+1. Copy `<files.ahc_layout>` into the task folder's `.ahc/layouts/` (the precheck folder has its own `.ahc/`).
 2. Set up a simulated STARlet (`configure_devices`, simulation), and have the scientist confirm the configuration.
 3. Load the layout, run the deck check, then the protocol's steps from `<files.ir>` as AHC calls, one plate column at
    a time, verifying each stage the lab-hardware skill names.
@@ -97,8 +97,8 @@ changed, and repeat from step 2 (and step 3 when the change is to be tested) unt
 
 Tell the scientist the two ways to run the accepted protocol, and let them choose:
 
-- **PreCheck alone**: `python <files.script> --backend chatterbox` rehearses it; `python demo/server.py` in the
-  PreCheck folder, then the Execute page, walks through the deck checklist and runs it on the STARlet.
+- **precheck alone**: `python <files.script> --backend chatterbox` rehearses it; `python demo/server.py` in the
+  precheck folder, then the Execute page, walks through the deck checklist and runs it on the STARlet.
 - **With AHC** (optional: a supervised run with error recovery and an on-site deck check): copy `<files.ahc_layout>`
   into the task folder's `.ahc/layouts/` and follow the AHC `lab-hardware` skill, using the steps in `<files.ir>` as
   the plan.

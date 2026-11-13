@@ -148,7 +148,7 @@ STANDALONE_HEADER = """\
 import sys
 from pathlib import Path
 
-PLUGIN_ROOT = {plugin!r}  # PreCheck's code and ground truth, as they were when this script was written
+PLUGIN_ROOT = {plugin!r}  # precheck's code and ground truth, as they were when this script was written
 sys.path.insert(0, PLUGIN_ROOT)  # for pipeline.deck and the simulator
 """
 
@@ -160,7 +160,7 @@ INITIAL_VOLUMES_UL = {volumes!r}
 
 
 def _deck_path(name):
-    # A deck config named relative to the working folder this script is in, or to PreCheck itself.
+    # A deck config named relative to the working folder this script is in, or to precheck itself.
     for root in (Path(__file__).resolve().parents[1], Path(PLUGIN_ROOT)):
         if (root / name).exists():
             return root / name

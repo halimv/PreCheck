@@ -1,15 +1,15 @@
-"""Where PreCheck reads and where it writes.
+"""Where precheck reads and where it writes.
 
 Two folders, and nothing else is used:
 
 - PLUGIN: the folder this package lives in. Its code, and the lab's ground truth in config/ (the instrument, VENUS's
   labware library, the policy and the AHC accepted types). Read only, in a run.
-- WORK: the working folder a run happens in: the folder PreCheck is started from, unless PRECHECK_WORKDIR names
+- WORK: the working folder a run happens in: the folder precheck is started from, unless PRECHECK_WORKDIR names
   another. Everything a run writes goes here: healed/ (the passing protocols, their scripts, layouts and reports),
   drafts/ and decks/ (what the drafter and the deck builder produced), build/ (per-round work files) and
   knowledge/ (the diagnostics knowledge base, which runs add to).
 
-When PreCheck runs from its own repo folder the two are the same folder, and nothing changes.
+When precheck runs from its own repo folder the two are the same folder, and nothing changes.
 """
 
 import os

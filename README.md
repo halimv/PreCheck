@@ -1,11 +1,11 @@
-# PreCheck
+# precheck
 
-PreCheck turns a liquid-handling protocol (a PDF, a text file, or a description in words) into a protocol that has
+precheck turns a liquid-handling protocol (a PDF, a text file, or a description in words) into a protocol that has
 been drafted, checked and repaired against the lab's own Hamilton STARlet: its deck, its labware from the VENUS library,
 and its firmware configuration. Nothing is sent to a robot. The output is a protocol a scientist reviews, a standalone
 PyLabRobot script, an AHC layout, and a summary that lists what needs a person's review.
 
-PreCheck ships as a Claude Code plugin. It also runs from the command line.
+precheck ships as a Claude Code plugin. It also runs from the command line.
 
 ## Contents
 
@@ -24,7 +24,7 @@ PreCheck ships as a Claude Code plugin. It also runs from the command line.
 
 ## Quick start
 
-PreCheck needs three things on the machine: [uv](https://docs.astral.sh/uv/) (it installs PreCheck's Python packages
+precheck needs three things on the machine: [uv](https://docs.astral.sh/uv/) (it installs precheck's Python packages
 from `plugin/pyproject.toml`), the Claude Code CLI (`npm install -g @anthropic-ai/claude-code`, then `claude` once to
 log in, for drafting and repairs), and the VENUS labware library copied into `plugin/config/Labware/` (it is Hamilton's
 software content, so it is not in the repository). Then, in the folder where you want the results:
@@ -129,7 +129,7 @@ The plugin is the `plugin/` folder. Its manifest is `plugin/.claude-plugin/plugi
 repository root points at it.
 
 ```bash
-claude plugin marketplace add /path/to/PreCheck
+claude plugin marketplace add /path/to/precheck
 claude plugin install precheck@precheck
 ```
 
@@ -182,7 +182,7 @@ The pages are in `plugin/demo/`. They read the code from `plugin/` and write to 
 - **AHC (optional):** the AHC layout is copied into the task folder's `.ahc/layouts/`. AHC's simulator then checks the
   deck and runs the plan. The skill does this in simulate mode. A real robot is run only on site, under AHC's own
   checks.
-- **PreCheck alone:** `python healed/<name>_plr.py --backend chatterbox` rehearses a protocol, and the Execute page
+- **precheck alone:** `python healed/<name>_plr.py --backend chatterbox` rehearses a protocol, and the Execute page
   runs it on the STARlet. The script for the STARlet (`--backend star`) asks you to type `run` first.
 - **Remote:** `config/remote.json` names a Raspberry Pi the STARlet's USB cable is plugged into. The Execute page can
   run there, and a lock file keeps two runs from driving the instrument at once.
@@ -200,7 +200,7 @@ library must be present for the labware tests.
 ## Repository layout
 
 ```
-PreCheck/
+precheck/
 ├── plugin/                        # the plugin: what a user installs
 │   ├── .claude-plugin/plugin.json # manifest
 │   ├── bin/precheck               # launcher: runs pipeline.py through uv, in the working folder

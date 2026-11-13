@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreCheck. The code and the lab's ground truth stay in the plugin folder (this script's repo); every file a run writes
+# precheck. The code and the lab's ground truth stay in the plugin folder (this script's repo); every file a run writes
 # goes into the folder you run it from (PRECHECK_WORKDIR, set below), so results land next to the protocols.
 #   precheck protocol.txt --yes       check a protocol, writing healed/, drafts/, decks/, build/ and knowledge/ here
 #   precheck --root                   the plugin folder
@@ -18,7 +18,7 @@ export PRECHECK_WORKDIR="${PRECHECK_WORKDIR:-$PWD}"
 if [[ $# -eq 0 || "${1:-}" == "--ui" ]]; then  # no arguments: the web pages
   port="${PRECHECK_PORT:-8000}"
   url="http://127.0.0.1:${port}/"
-  echo "PreCheck pages for $PRECHECK_WORKDIR: $url (Ctrl+C to stop)"
+  echo "precheck pages for $PRECHECK_WORKDIR: $url (Ctrl+C to stop)"
   ( sleep 3; if command -v open >/dev/null 2>&1; then open "$url"; fi ) &
   if command -v uv >/dev/null 2>&1; then
     exec uv run --quiet --project "$root" python "$root/demo/server.py" --port "$port"
