@@ -130,7 +130,7 @@ repository root points at it.
 
 ```bash
 claude plugin marketplace add halimv/precheck --sparse .claude-plugin plugin
-claude plugin install precheck@precheck
+claude plugin install precheck@precheck-plugin
 ```
 
 The plugin contains the skill (`plugin/skills/precheck/SKILL.md`), which Claude follows to set up a folder, check a
