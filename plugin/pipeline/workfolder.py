@@ -12,7 +12,7 @@ from typing import List, Tuple
 
 from pipeline import paths
 
-FOLDERS = (paths.HEALED, paths.DRAFTS, paths.DECKS, paths.BUILD)
+FOLDERS = (paths.HEALED, paths.DRAFTS, paths.DECKS, paths.BUILD, paths.WORK / "runs")
 
 
 def checks() -> List[Tuple[str, bool, str]]:

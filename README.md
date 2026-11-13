@@ -73,6 +73,7 @@ Everything a run writes goes into the **working folder**: the folder you run `pr
 | `healed/<name>_heal_log.json` | Every round: the failure, the model's edits, and the verdict |
 | `drafts/`, `decks/` | What the drafter and the deck builder produced, with Claude's replies |
 | `build/<name>/summary.md` | **Summary of a protocol that did not pass**. Nothing is written to `healed/` |
+| `runs/<time>-<protocol>/` | **The run record**, for every check, passing or not: the input, the protocol as checked, the summary, the review, the repair log, and a `manifest.json` with the result, the models, and the provenance (file hashes and versions). It is what the Runs page shows |
 | `knowledge/diagnostics.json` | The diagnostics knowledge base, copied from the plugin on first use and added to by runs |
 
 The review list has two severities:
@@ -164,6 +165,9 @@ python demo/server.py          # then open http://127.0.0.1:8000
 
 - **Check** (`/`): start a run from text, a file or a saved protocol. It streams the repair rounds, the review and the
   summary, and it can replay the passing protocol in the 3D viewer.
+- **Runs** (`/runs`): every check in this folder, newest first. Each run shows its result, its provenance, its
+  summary and its files, and its review items can be acknowledged with a typed name and a note. Acknowledgements are
+  kept in the run's manifest.
 - **Library** (`/library`): VENUS's labware library and the deck on the STARlet, and the protocols drafted for it.
 - **Execute** (`/execute`): sets up a passing protocol on the STARlet. It shows the deck checklist and the layout
   comparison, has a *Replay in 3D* button, and runs the protocol on ChatterBox or the STARlet, once every setup item is

@@ -42,7 +42,7 @@ import yaml
 from pipeline import diagnostics, proposals
 from pipeline.deck import DeckError, deck_config_for, load_deck_config
 from pipeline.design_review import render
-from pipeline import summary
+from pipeline import runs, summary
 from pipeline.flow import NotPassing, finish, next_stem, result_summary
 from pipeline.instrument import InstrumentError, load_instrument
 from pipeline.instrument import use as use_ground_truth
@@ -164,6 +164,15 @@ def hand_off(report):
     print(f"Report (review, suggestions, files): {WORK / report['files']['report']}")
 
 
+def _source(args, protocol_file):
+    """What the person gave: the protocol text or file, a revision request, or the protocol file itself."""
+    if args.input:
+        return args.input
+    if args.revise:
+        return args.revise[1]
+    return str(protocol_file) if protocol_file.exists() else None
+
+
 def main():
     if "--setup" in sys.argv[1:]:  # the plugin's requirements and this folder's working folders; no protocol needed
         from pipeline import workfolder
@@ -268,9 +277,14 @@ def main():
             if result.status == "GAVE_UP":
                 failed = Path(args.output) / stem / "summary.md"
                 failed.parent.mkdir(parents=True, exist_ok=True)
-                failed.write_text(summary.failure_markdown(protocol, tiers, args.max_rounds,
-                                                           Path(args.output) / stem / "heal_log.json"))
+                failed_text = summary.failure_markdown(protocol, tiers, args.max_rounds,
+                                                       Path(args.output) / stem / "heal_log.json")
+                failed.write_text(failed_text)
+                run_dir = runs.record(stem, _source(args, protocol_file), protocol,
+                                      [dict(r, model=tier["model"]) for tier in tiers for r in tier["rounds"]],
+                                      tiers, False, failed_text, None)
                 print(f"Summary of the failed run (nothing written to healed/): {paths.in_work(failed)}")
+                print(f"Run record: {paths.in_work(run_dir)}")
                 sys.exit(1)
             passing = result.protocol
             rounds = [dict(r, model=tier["model"]) for tier in tiers for r in tier["rounds"]]
@@ -285,6 +299,15 @@ def main():
                             tiers=tiers if args.heal else [])
         except NotPassing as e:  # the gate says no: nothing is written
             sys.exit(f"\n{e}")
+        run_dir = runs.record(
+            stem, _source(args, protocol_file), passing,
+            [dict(r, model=tier["model"]) for tier in tiers for r in tier["rounds"]] if args.heal else [],
+            tiers if args.heal else [], True,
+            (WORK / report["files"]["summary"]).read_text(),
+            report,
+            script=(WORK / report["files"]["script"]).read_text(),
+            layout=WORK / report["files"]["ahc_layout"])
+        print(f"Run record: {paths.in_work(run_dir)}")
         hints = report["suggestions"]
 
         banner("For your review")

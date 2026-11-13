@@ -70,3 +70,10 @@ plugin/config/Labware/
 .DS_Store
 .vscode/
 .claude/
+
+# Run outputs in the repo folder when developing (the plugin folder keeps its own knowledge/)
+/healed/
+/decks/
+/drafts/
+/runs/
+/knowledge/

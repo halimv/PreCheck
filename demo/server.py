@@ -39,7 +39,7 @@ ROOT = REPO / "plugin"  # the code and the lab's ground truth; the run outputs a
 sys.path.insert(0, str(ROOT))
 
 from pipeline import diagnostics, proposals  # noqa: E402
-from pipeline import library_view  # noqa: E402
+from pipeline import library_view, runs, summary  # noqa: E402
 from pipeline.deck import DEFAULT_DECK, INSTRUMENT_DECK, DeckError, deck_config_for, load_deck_config  # noqa: E402
 from pipeline.instrument import load_instrument, real_deck_layout  # noqa: E402
 from pipeline.remote import RemoteExecutor, load_remote, refusal, remote_status  # noqa: E402
@@ -164,9 +164,20 @@ def run_worker(run: Run) -> None:
             "proposals": stored,  # pending, waiting for a person to approve or reject
             "proposals_not_kept": [c for c in result.proposals if c["problems"]],
         }
+        tiers = [{"model": backend.model, "status": result.status, "rounds": result.rounds}]
+        source = run.source.get("text") if run.source.get("kind") == "text" else run.source.get("path") or run.source.get("file")
         if result.status in ("HEALED", "ALREADY_PASSING"):
             run.passing, run.name = result.protocol, Path(protocol_file).stem
             done["report"] = finish(result.protocol, deck_config, run.name, result.rounds, status=result.status)
+            files = done["report"]["files"]
+            runs.record(run.name, source, result.protocol, result.rounds, tiers, True,
+                        (paths.WORK / files["summary"]).read_text(), done["report"],
+                        script=(paths.WORK / files["script"]).read_text(),
+                        layout=paths.WORK / files["ahc_layout"], runs_dir=paths.WORK / "runs")
+        else:
+            failed_text = summary.failure_markdown(protocol, tiers, run.max_rounds, work_dir / "heal_log.json")
+            runs.record(Path(protocol_file).stem, source, protocol, result.rounds, tiers, False, failed_text, None,
+                        runs_dir=paths.WORK / "runs")
             if result.status == "HEALED":
                 done["diff"] = ir_diff(protocol, result.protocol)
             if previous is not None:
@@ -665,6 +676,49 @@ def get_layout(layout_id: str):
 @app.get("/library")
 def library_page():
     return send_from_directory(app.static_folder, "library.html")
+
+
+@app.get("/runs")
+def runs_page():
+    return send_from_directory(app.static_folder, "runs.html")
+
+
+@app.get("/api/runs")
+def list_run_records():
+    """Every run in the working folder's runs/, newest first."""
+    return jsonify(runs.list_runs(paths.WORK / "runs"))
+
+
+@app.get("/api/runs/<run_id>")
+def get_run_record(run_id: str):
+    manifest = runs.load(run_id, paths.WORK / "runs")
+    if manifest is None:
+        abort(404)
+    return jsonify(manifest)
+
+
+@app.get("/api/runs/<run_id>/file/<name>")
+def get_run_file(run_id: str, name: str):
+    """A file from one run's folder (its summary, protocol, script, layout, report or input)."""
+    path = runs.run_file(run_id, name, paths.WORK / "runs")
+    if path is None:
+        abort(404)
+    return send_from_directory(path.parent, path.name, as_attachment=False, mimetype="text/plain")
+
+
+@app.post("/api/runs/<run_id>/acknowledge")
+def acknowledge_run_item(run_id: str):
+    """A person's review of one item: their typed name and an optional note."""
+    body = request.get_json(silent=True) or {}
+    name = str(body.get("name", "")).strip()
+    if not name:
+        return jsonify({"error": "Type your name to acknowledge an item."}), 400
+    try:
+        manifest = runs.acknowledge(run_id, int(body.get("item", -1)), name, str(body.get("note", "")),
+                                    paths.WORK / "runs")
+    except (IndexError, FileNotFoundError, ValueError) as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify(manifest)
 
 
 @app.get("/api/library")
