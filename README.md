@@ -129,7 +129,7 @@ The plugin is the `plugin/` folder. Its manifest is `plugin/.claude-plugin/plugi
 repository root points at it.
 
 ```bash
-claude plugin marketplace add /path/to/precheck
+claude plugin marketplace add halimv/precheck --sparse .claude-plugin plugin
 claude plugin install precheck@precheck
 ```
 
