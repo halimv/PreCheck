@@ -66,3 +66,47 @@ def report(results: List[Tuple[str, bool, str]]) -> str:
     lines += ["", "Working folders present: " + (", ".join(folders) if folders else "none yet")]
     lines.append("Ready." if all(ok for _, ok, _ in results) else "Fix the items marked missing, then run --setup again.")
     return "\n".join(lines)
+
+
+def _library_ok(folder: Path) -> bool:
+    return folder.is_dir() and (folder / "ML_STAR").is_dir()
+
+
+def _ask(prompt: str) -> str:
+    """A question to the person. No answer (end of input, Ctrl+C) counts as pressing Enter: the default."""
+    try:
+        return input(prompt)
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return ""
+
+
+def interactive_setup(ask=_ask, out=print) -> List[Tuple[str, bool, str]]:
+    """`precheck --setup` in a terminal: show what is missing, and ask for what the person can give. Asks for the
+    VENUS labware library's folder (linked into the plugin, so the library stays where the lab keeps it), and for a
+    task folder to create if this one is not usable. Returns the checks after setup."""
+    out(report(checks()))
+    venus = paths.PLUGIN / "config" / "Labware"
+    if not _library_ok(venus):
+        given = ask("\nWhere is the VENUS Labware folder (the one with ML_STAR inside)? Press Enter to skip: ").strip()
+        if given:
+            source = Path(given).expanduser().resolve()
+            if _library_ok(source):
+                if venus.is_symlink() or not venus.exists():
+                    venus.parent.mkdir(parents=True, exist_ok=True)
+                    if venus.is_symlink():
+                        venus.unlink()
+                    venus.symlink_to(source, target_is_directory=True)
+                    out(f"Linked {venus} to {source}.")
+            else:
+                out(f"{source} has no ML_STAR folder, so it is not a VENUS Labware folder. Not linked.")
+    if not (paths.WORK.is_dir() and _writable(paths.WORK)):
+        out(f"\nThis folder ({paths.WORK}) is not usable for results.")
+    else:
+        choice = ask(f"\nPress Enter to keep results in {paths.WORK}, or type the path of a new folder to create: ").strip()
+        if choice:
+            target = Path(choice).expanduser().resolve()
+            target.mkdir(parents=True, exist_ok=True)
+            out(f"Created {target}.\nRun setup there:  cd {target} && precheck --setup")
+            return checks()
+    return setup()

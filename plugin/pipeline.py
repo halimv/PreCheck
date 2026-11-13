@@ -176,7 +176,11 @@ def _source(args, protocol_file):
 def main():
     if "--setup" in sys.argv[1:]:  # the plugin's requirements and this folder's working folders; no protocol needed
         from pipeline import workfolder
-        print(workfolder.report(workfolder.setup()))
+        if sys.stdin.isatty():  # in a terminal: ask for what is missing
+            results = workfolder.interactive_setup()
+        else:
+            results = workfolder.setup()
+        print(workfolder.report(results))
         return
     parser = argparse.ArgumentParser(description="Precheck: protocol text -> a protocol checked against the real instrument")
     source = parser.add_mutually_exclusive_group(required=True)
