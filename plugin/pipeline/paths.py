@@ -12,9 +12,11 @@ Two folders, and nothing else is used:
 When precheck runs from its own repo folder the two are the same folder, and nothing changes.
 """
 
+import json
 import os
 import shutil
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 PLUGIN = Path(__file__).resolve().parent.parent
 WORK = Path(os.environ.get("PRECHECK_WORKDIR") or os.getcwd()).resolve()
@@ -25,6 +27,36 @@ DECKS = WORK / "decks"
 BUILD = WORK / "build"
 KNOWLEDGE = WORK / "knowledge" / "diagnostics.json"
 KNOWLEDGE_SEED = PLUGIN / "knowledge" / "diagnostics.json"
+
+# Settings the person gives once (the VENUS library's folder). They live outside the plugin folder, so an update of
+# the plugin does not lose them.
+CONFIG_FILE = Path(os.environ.get("PRECHECK_CONFIG") or Path.home() / ".config" / "precheck" / "config.json")
+
+
+def saved_settings() -> Dict[str, Any]:
+    try:
+        return json.loads(CONFIG_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_setting(key: str, value: str) -> None:
+    settings = saved_settings()
+    settings[key] = value
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(settings, indent=2))
+
+
+def labware() -> Path:
+    """VENUS's Labware folder (the one with ML_STAR inside): PRECHECK_LABWARE if set, else the folder setup saved,
+    else config/Labware in the plugin (a development checkout that has the library in place)."""
+    env = os.environ.get("PRECHECK_LABWARE")
+    if env:
+        return Path(env).expanduser()
+    saved: Optional[str] = saved_settings().get("labware")
+    if saved:
+        return Path(saved).expanduser()
+    return PLUGIN / "config" / "Labware"
 
 
 def ensure_knowledge() -> Path:

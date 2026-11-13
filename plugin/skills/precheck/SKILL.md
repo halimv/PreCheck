@@ -22,7 +22,10 @@ precheck --setup
 ```
 
 It checks what precheck needs (the VENUS labware library, the Claude CLI, uv, and that the folder is writable) and
-creates the folders a run writes into. If an item is marked missing, tell the scientist what it says and stop.
+creates the folders a run writes into. If the VENUS labware library is marked missing, ask the scientist in chat for the
+path of their VENUS Labware folder (the one with `ML_STAR` inside), then run
+`precheck --setup --labware "<that path>"` and check the report again. If any other item is missing, tell the scientist
+what it says and stop.
 
 ## 1. Check the protocol
 

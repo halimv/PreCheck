@@ -71,7 +71,7 @@ def provenance() -> Dict[str, Any]:
         "deck_layout_sha256": _sha256(config / "instrument" / "ahc_deck.lay"),
         "venus_map_sha256": _sha256(config / "venus_labware.json"),
         "policy_sha256": _sha256(config / "precheck_policy.json"),
-        "labware_library_fingerprint": _library_fingerprint(config / "Labware"),
+        "labware_library_fingerprint": _library_fingerprint(paths.labware()),
     }
 
 

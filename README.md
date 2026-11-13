@@ -26,8 +26,9 @@ precheck ships as a Claude Code plugin. It also runs from the command line.
 
 precheck needs three things on the machine: [uv](https://docs.astral.sh/uv/) (it installs precheck's Python packages
 from `plugin/pyproject.toml`), the Claude Code CLI (`npm install -g @anthropic-ai/claude-code`, then `claude` once to
-log in, for drafting and repairs), and the VENUS labware library copied into `plugin/config/Labware/` (it is Hamilton's
-software content, so it is not in the repository). Then, in the folder where you want the results:
+log in, for drafting and repairs), and the path of the VENUS labware library (it is Hamilton's software content, so it
+is not in the repository; give the path once with `precheck --setup --labware <path>`). Then, in the folder where you
+want the results:
 
 ```bash
 precheck --setup                       # checks the requirements and makes this folder's working folders
@@ -148,10 +149,16 @@ Then:
 
 1. **Install uv** (https://docs.astral.sh/uv/). PreCheck uses it to install its Python packages on first run.
 2. **Install the Claude Code CLI** and log in once (`claude`). PreCheck uses it to draft and repair protocols.
-3. **Get the VENUS Labware folder** from the lab's VENUS install (the folder with `ML_STAR` inside). It is Hamilton's
-   software content, so it is not in the repository. Setup asks for its location once and links it into the plugin.
+3. **Give the path of the VENUS Labware folder** (the one with `ML_STAR` inside, from the lab's VENUS install). It is
+   Hamilton's software content, so it is not in the repository. Give it once, from a terminal or from Claude Code:
+   ```bash
+   precheck --setup --labware "/path/to/Labware"
+   ```
+   It is saved in `~/.config/precheck/config.json`, outside the plugin folder, so plugin updates keep it. To use a
+   different library for one run, pass `--labware` to the run instead, or set `PRECHECK_LABWARE`.
 4. **Run setup in the folder where you want results**, then check a protocol. In Claude Code, ask for it in words and
-   the skill runs `precheck --setup` first. In a terminal, from the same folder:
+   the skill runs `precheck --setup` first, and asks you for the labware path if it is missing. In a terminal, from the
+   same folder:
    ```bash
    precheck --setup
    precheck protocol.txt --yes
@@ -160,8 +167,8 @@ Then:
    use the full path, for example
    `~/.claude/plugins/cache/precheck-plugin/precheck/0.1.0/bin/precheck` (the version number changes on update).
 
-To update, run `claude plugin marketplace update precheck-plugin`, then `claude plugin update precheck@precheck-plugin`. Setup may need to link the VENUS folder again
-after an update, since the plugin's copy is replaced.
+To update, run `claude plugin marketplace update precheck-plugin`, then `claude plugin update precheck@precheck-plugin`.
+The saved labware path survives the update.
 
 ### Working on the plugin itself
 
@@ -232,7 +239,7 @@ uv run --project plugin --group dev pytest tests -q
 ```
 
 The tests run from the repository: `tests/conftest.py` puts `plugin/` on the path, and the working folder is the
-repository. They use the fixtures in `tests/fixtures/` and the VENUS library in `plugin/config/Labware/`, so the
+repository. They use the fixtures in `tests/fixtures/` and the VENUS library (the saved path, or `plugin/config/Labware/` in a checkout), so the
 library must be present for the labware tests.
 
 ## Repository layout

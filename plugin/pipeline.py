@@ -176,7 +176,11 @@ def _source(args, protocol_file):
 def main():
     if "--setup" in sys.argv[1:]:  # the plugin's requirements and this folder's working folders; no protocol needed
         from pipeline import workfolder
-        if sys.stdin.isatty():  # in a terminal: ask for what is missing
+        argv = sys.argv[1:]
+        if "--labware" in argv and argv.index("--labware") + 1 < len(argv):  # given in chat or a script: save it, no prompt
+            print(workfolder.set_labware(argv[argv.index("--labware") + 1]))
+            results = workfolder.setup()
+        elif sys.stdin.isatty():  # in a terminal: ask for what is missing
             results = workfolder.interactive_setup()
         else:
             results = workfolder.setup()

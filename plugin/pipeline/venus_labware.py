@@ -28,8 +28,10 @@ from pylabrobot.resources.carrier import Carrier, PlateCarrier, PlateHolder, Res
 from pylabrobot.resources.utils import create_ordered_items_2d
 from pylabrobot.resources.well import CrossSectionType, WellBottomType
 
+from pipeline import paths
+
 ROOT = Path(__file__).resolve().parent.parent
-LIBRARY = "config/Labware"
+LIBRARY = str(paths.labware())  # the folder setup saved, or config/Labware; --labware overrides it for one run
 TOLERANCE_MM = 0.15
 
 

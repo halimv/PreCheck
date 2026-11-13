@@ -17,15 +17,16 @@ FOLDERS = (paths.HEALED, paths.DRAFTS, paths.DECKS, paths.BUILD, paths.WORK / "r
 
 def checks() -> List[Tuple[str, bool, str]]:
     """(check, passed, what to do) for everything precheck needs."""
-    venus = paths.PLUGIN / "config" / "Labware"
-    venus_ok = (venus / "ML_STAR").is_dir()
+    venus = paths.labware()
+    venus_ok = _library_ok(venus)
     instrument = paths.PLUGIN / "config" / "instrument" / "starlet_F553.json"
     writable = paths.WORK.is_dir() and _writable(paths.WORK)
     claude = shutil.which("claude")
     uv = shutil.which("uv")
     return [
         ("VENUS labware library", venus_ok,
-         f"Copy the VENUS library's Labware folder (from the lab's VENUS install) to {venus}." if not venus_ok else str(venus)),
+         f"Give the path of the VENUS library's Labware folder (the one with ML_STAR inside): precheck --setup --labware <path>."
+         if not venus_ok else str(venus)),
         ("instrument file and deck", instrument.exists(),
          str(instrument) if instrument.exists() else "The STARlet's instrument file is missing from the plugin's config/instrument/."),
         ("Claude Code CLI (drafting and repairs)", claude is not None,
@@ -72,6 +73,15 @@ def _library_ok(folder: Path) -> bool:
     return folder.is_dir() and (folder / "ML_STAR").is_dir()
 
 
+def set_labware(given: str) -> str:
+    """Save the VENUS Labware folder the person gave, so every later run finds it. Returns what happened."""
+    source = Path(given).expanduser().resolve()
+    if not _library_ok(source):
+        return f"{source} has no ML_STAR folder, so it is not a VENUS Labware folder. Not saved."
+    paths.save_setting("labware", str(source))
+    return f"Saved the VENUS Labware folder: {source}."
+
+
 def _ask(prompt: str) -> str:
     """A question to the person. No answer (end of input, Ctrl+C) counts as pressing Enter: the default."""
     try:
@@ -86,20 +96,10 @@ def interactive_setup(ask=_ask, out=print) -> List[Tuple[str, bool, str]]:
     VENUS labware library's folder (linked into the plugin, so the library stays where the lab keeps it), and for a
     task folder to create if this one is not usable. Returns the checks after setup."""
     out(report(checks()))
-    venus = paths.PLUGIN / "config" / "Labware"
-    if not _library_ok(venus):
+    if not _library_ok(paths.labware()):
         given = ask("\nWhere is the VENUS Labware folder (the one with ML_STAR inside)? Press Enter to skip: ").strip()
         if given:
-            source = Path(given).expanduser().resolve()
-            if _library_ok(source):
-                if venus.is_symlink() or not venus.exists():
-                    venus.parent.mkdir(parents=True, exist_ok=True)
-                    if venus.is_symlink():
-                        venus.unlink()
-                    venus.symlink_to(source, target_is_directory=True)
-                    out(f"Linked {venus} to {source}.")
-            else:
-                out(f"{source} has no ML_STAR folder, so it is not a VENUS Labware folder. Not linked.")
+            out(set_labware(given))
     if not (paths.WORK.is_dir() and _writable(paths.WORK)):
         out(f"\nThis folder ({paths.WORK}) is not usable for results.")
     else:
