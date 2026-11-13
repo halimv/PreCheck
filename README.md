@@ -128,9 +128,47 @@ Other ground truth can be used with `--instrument`, `--labware` and `--deck`.
 The plugin is the `plugin/` folder. Its manifest is `plugin/.claude-plugin/plugin.json`, and the marketplace at the
 repository root points at it.
 
+### Install
+
+Inside Claude Code, run these two commands, as with AHC:
+
+```
+/plugin marketplace add halimv/precheck
+/plugin install precheck@precheck-plugin
+```
+
+Or from a terminal:
+
 ```bash
-claude plugin marketplace add halimv/precheck --sparse .claude-plugin plugin
+claude plugin marketplace add halimv/precheck
 claude plugin install precheck@precheck-plugin
+```
+
+Then:
+
+1. **Install uv** (https://docs.astral.sh/uv/). PreCheck uses it to install its Python packages on first run.
+2. **Install the Claude Code CLI** and log in once (`claude`). PreCheck uses it to draft and repair protocols.
+3. **Get the VENUS Labware folder** from the lab's VENUS install (the folder with `ML_STAR` inside). It is Hamilton's
+   software content, so it is not in the repository. Setup asks for its location once and links it into the plugin.
+4. **Run setup in the folder where you want results**, then check a protocol. In Claude Code, ask for it in words and
+   the skill runs `precheck --setup` first. In a terminal, from the same folder:
+   ```bash
+   precheck --setup
+   precheck protocol.txt --yes
+   ```
+   `precheck` is the launcher in the plugin's `bin/` folder. Claude Code does not put it on your PATH, so from a terminal
+   use the full path, for example
+   `~/.claude/plugins/cache/precheck-plugin/precheck/0.1.0/bin/precheck` (the version number changes on update).
+
+To update, run `claude plugin marketplace update precheck-plugin`, then `claude plugin update precheck@precheck-plugin`. Setup may need to link the VENUS folder again
+after an update, since the plugin's copy is replaced.
+
+### Working on the plugin itself
+
+To edit the code and test your changes without installing from GitHub, start Claude Code with the local folder:
+
+```bash
+claude --plugin-dir /path/to/PreCheck/plugin
 ```
 
 The plugin contains the skill (`plugin/skills/precheck/SKILL.md`), which Claude follows to set up a folder, check a
