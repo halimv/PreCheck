@@ -9,6 +9,7 @@ precheck ships as a Claude Code plugin. It also runs from the command line.
 
 ## Contents
 
+- [Download and install](#download-and-install)
 - [Quick start](#quick-start)
 - [How a run works](#how-a-run-works)
 - [What a run produces](#what-a-run-produces)
@@ -21,6 +22,66 @@ precheck ships as a Claude Code plugin. It also runs from the command line.
 - [Tests](#tests)
 - [Repository layout](#repository-layout)
 - [Status and known gaps](#status-and-known-gaps)
+
+## Download and install
+
+precheck is a Claude Code plugin, downloaded from this repository. You need four things first:
+
+- **Claude Code**, logged in (`claude`, once).
+- **Claude Code CLI**, which precheck uses to draft and repair protocols (`npm install -g @anthropic-ai/claude-code`).
+- **uv** (https://docs.astral.sh/uv/), which installs precheck's Python packages the first time it runs.
+- **The VENUS Labware folder**: the folder with `ML_STAR` inside, from the lab's VENUS install. Hamilton's software
+  content is not in this repository, so get it from the lab.
+
+### 1. Download the plugin
+
+In Claude Code, run these two commands, as you would for AHC:
+
+```
+/plugin marketplace add halimv/precheck
+/plugin install precheck@precheck-plugin
+```
+
+Or from a terminal:
+
+```bash
+claude plugin marketplace add halimv/precheck
+claude plugin install precheck@precheck-plugin
+```
+
+Claude Code downloads the plugin into `~/.claude/plugins/cache/precheck-plugin/precheck/<version>/`.
+
+### 2. Give it the path to the VENUS Labware folder
+
+Once, from a terminal:
+
+```bash
+~/.claude/plugins/cache/precheck-plugin/precheck/0.1.0/bin/precheck --setup --labware "/path/to/Labware"
+```
+
+The path is saved in `~/.config/precheck/config.json`, outside the plugin, so updates keep it. You can also ask Claude
+Code to check a protocol: if the library is missing, the skill asks you for the path in chat and saves it the same way.
+
+### 3. Check that it is ready
+
+```bash
+~/.claude/plugins/cache/precheck-plugin/precheck/0.1.0/bin/precheck --setup
+```
+
+It should end with `Ready.` If an item is marked `missing`, it says what to do.
+
+### Update or remove
+
+```bash
+claude plugin marketplace update precheck-plugin && claude plugin update precheck@precheck-plugin   # update
+claude plugin uninstall precheck@precheck-plugin && claude plugin marketplace remove precheck-plugin # remove
+```
+
+The saved labware path survives an update. A remove leaves `~/.config/precheck/` in place; delete that folder too if you
+want nothing left behind.
+
+The version number in the path changes on update. Running `precheck` without the full path needs the plugin's `bin/`
+folder on your PATH, which Claude Code does not set up for you.
 
 ## Quick start
 
@@ -129,54 +190,7 @@ Other ground truth can be used with `--instrument`, `--labware` and `--deck`.
 The plugin is the `plugin/` folder. Its manifest is `plugin/.claude-plugin/plugin.json`, and the marketplace at the
 repository root points at it.
 
-### Install
-
-Inside Claude Code, run these two commands, as with AHC:
-
-```
-/plugin marketplace add halimv/precheck
-/plugin install precheck@precheck-plugin
-```
-
-Or from a terminal:
-
-```bash
-claude plugin marketplace add halimv/precheck
-claude plugin install precheck@precheck-plugin
-```
-
-Then:
-
-1. **Install uv** (https://docs.astral.sh/uv/). PreCheck uses it to install its Python packages on first run.
-2. **Install the Claude Code CLI** and log in once (`claude`). PreCheck uses it to draft and repair protocols.
-3. **Give the path of the VENUS Labware folder** (the one with `ML_STAR` inside, from the lab's VENUS install). It is
-   Hamilton's software content, so it is not in the repository. Give it once, from a terminal or from Claude Code:
-   ```bash
-   precheck --setup --labware "/path/to/Labware"
-   ```
-   It is saved in `~/.config/precheck/config.json`, outside the plugin folder, so plugin updates keep it. To use a
-   different library for one run, pass `--labware` to the run instead, or set `PRECHECK_LABWARE`.
-4. **Run setup in the folder where you want results**, then check a protocol. In Claude Code, ask for it in words and
-   the skill runs `precheck --setup` first, and asks you for the labware path if it is missing. In a terminal, from the
-   same folder:
-   ```bash
-   precheck --setup
-   precheck protocol.txt --yes
-   ```
-   `precheck` is the launcher in the plugin's `bin/` folder. Claude Code does not put it on your PATH, so from a terminal
-   use the full path, for example
-   `~/.claude/plugins/cache/precheck-plugin/precheck/0.1.0/bin/precheck` (the version number changes on update).
-
-To update, run `claude plugin marketplace update precheck-plugin`, then `claude plugin update precheck@precheck-plugin`.
-The saved labware path survives the update.
-
-### Working on the plugin itself
-
-To edit the code and test your changes without installing from GitHub, start Claude Code with the local folder:
-
-```bash
-claude --plugin-dir /path/to/PreCheck/plugin
-```
+Install it with the steps in [Download and install](#download-and-install).
 
 The plugin contains the skill (`plugin/skills/precheck/SKILL.md`), which Claude follows to set up a folder, check a
 protocol, summarise it, test it on AHC's simulator, revise it and hand it off. It runs from the plugin folder and
