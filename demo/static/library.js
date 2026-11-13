@@ -1,5 +1,5 @@
-// Library page: the static data the pipeline relies on. Labware inventory and deck layouts on one
-// tab, the diagnostics knowledge base (and what runs recorded in it) on the other. Read-only.
+// Library page: ground truth only. VENUS's labware library and the deck on the STARlet now, on one tab; the
+// diagnostics knowledge base (and what runs recorded in it) on the other. Read-only.
 
 const $ = (id) => document.getElementById(id);
 const lib = { data: null, tab: "labware" };
@@ -43,6 +43,10 @@ function specView(value) {
 
 // ---------- labware tab ----------
 
+// Labware is keyed by its VENUS type; a deck places one of those types under its own id (STF_L_0001 is an STF_L).
+const venusType = (spec) => spec.venus_type || spec.factory;
+const placedTypes = (decks) => new Set(decks.flatMap((d) => Object.values(d.labware).map(venusType)));
+
 function inventoryIndex(inventory) {
   const index = {};
   for (const [category, items] of Object.entries(inventory)) {
@@ -55,30 +59,26 @@ function inventoryIndex(inventory) {
 function keyFacts(category, item) {
   const facts = [];
   if (category === "plates") {
-    const range = item.well_specifications?.well_volume_range || {};
-    facts.push(["Format", item.well_format], ["Usable volume", range.min_ul != null ? `${range.min_ul}–${range.max_ul} µL per well` : null],
-      ["Bottom", item.well_specifications?.bottom_type]);
+    facts.push(["Format", item.well_format], ["Capacity", item.capacity_ul_per_well != null ? `${fmt(item.capacity_ul_per_well)} µL per well` : null]);
   } else if (category === "tips") {
     const s = item.specifications || {};
-    facts.push(["Type", item.tip_type], ["Capacity", s.capacity_ul != null ? `${s.capacity_ul} µL` : null],
-      ["Volume range", s.minimum_volume_ul != null ? `${s.minimum_volume_ul}–${s.maximum_volume_ul} µL` : null]);
-  } else if (category === "reagent_containers") {
-    facts.push(["Type", item.type], ["Holds", item.volume_ul != null ? `${fmt(item.volume_ul)} µL` : null], ["Material", item.material]);
+    facts.push(["Type", item.tip_type], ["Tip volume", s.capacity_ul != null ? `${fmt(s.capacity_ul)} µL` : null],
+      ["Filter", s.filter ? "yes" : null]);
   } else {
-    facts.push(["Type", item.type], ["Capacity", item.capacity], ["Format", item.format]);
+    facts.push(["Type", item.type], ["Holds", item.volume_ul != null ? `${fmt(item.volume_ul)} µL` : null]);
   }
   return facts.filter(([, v]) => v != null && v !== "");
 }
 
 function inventoryCard(category, item, decks) {
-  const onDecks = decks.filter((d) => item.id in d.labware).map((d) => d.file);
-  const title = item.product_name || item.product_line || item.type || item.id;
+  const onDecks = decks.filter((d) => Object.values(d.labware).some((s) => venusType(s) === item.id)).map((d) => d.file);
+  const title = item.product_name || item.type || item.id;
   const dl = el("dl", { class: "kv" });
   for (const [k, v] of keyFacts(category, item)) dl.append(el("dt", { text: k }), el("dd", { text: String(v) }));
   const rest = Object.fromEntries(Object.entries(item).filter(([k]) => k !== "id"));
-  return card(`${item.id} ${title} ${item.manufacturer || ""} ${item.description || ""}`,
+  return card(`${item.id} ${title} ${item.description || ""}`,
     el("header", {},
-      el("div", {}, el("h3", { class: "mono", text: item.id }), el("div", { class: "muted lib-title", text: [item.manufacturer, title].filter(Boolean).join(" · ") })),
+      el("div", {}, el("h3", { class: "mono", text: item.id }), el("div", { class: "muted lib-title", text: title })),
       el("div", { class: "lib-chips" }, onDecks.length
         ? chip(`on ${onDecks.join(", ")}`, "ok")
         : chip("not placed on any deck"))),
@@ -97,10 +97,10 @@ function placement(spec, deck) {
 
 function deckCard(deck, index) {
   const rows = Object.entries(deck.labware).map(([id, spec]) => {
-    const known = id in index;
+    const known = venusType(spec) in index;
     const status = spec.kind === "trash" ? el("span", { class: "muted", text: "n/a" })
-      : known ? el("span", { class: "badge ok", text: CATEGORY_LABELS[index[id]] || index[id] })
-        : el("span", { class: "badge warn", text: "not in reference labware.json" });
+      : known ? el("span", { class: "badge ok", text: CATEGORY_LABELS[index[venusType(spec)]] || index[venusType(spec)] })
+        : el("span", { class: "badge warn", text: "not in VENUS's library" });
     return el("tr", {},
       el("th", { class: "mono", text: id }),
       el("td", { text: humanize(spec.kind) }),
@@ -137,8 +137,9 @@ function renderLabware() {
   const { inventory, decks } = lib.data;
   const index = inventoryIndex(inventory);
   const missing = new Set();
-  for (const d of decks) for (const [id, spec] of Object.entries(d.labware)) if (spec.kind !== "trash" && !(id in index)) missing.add(id);
-  const unplaced = Object.keys(index).filter((id) => !decks.some((d) => id in d.labware));
+  for (const d of decks) for (const [id, spec] of Object.entries(d.labware)) if (spec.kind !== "trash" && !(venusType(spec) in index)) missing.add(id);
+  const placed = placedTypes(decks);
+  const unplaced = Object.keys(index).filter((id) => !placed.has(id));
 
   const summary = el("div", { class: "summary-grid lib-summary" },
     statCard("Inventory items", Object.keys(index).length,
@@ -155,7 +156,7 @@ function renderLabware() {
       Object.values(items).map((item) => inventoryCard(category, item, decks))));
 
   $("labware").replaceChildren(summary,
-    el("p", { class: "muted lib-sub", text: `config/reference/labware.json (reference simulation deck, not the lab's) · ${meta.description || ""} Version ${meta.version || "?"}, last updated ${meta.last_updated || "?"}.` }),
+    el("p", { class: "muted lib-sub", text: `${meta.source || "VENUS library"} · ${meta.description || ""}` }),
     ...groups,
     group("Deck layouts", "Where each labware ID used by the protocols sits on the STARlet.", decks.map((d) => deckCard(d, index))));
 }

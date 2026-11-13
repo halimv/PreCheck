@@ -151,6 +151,67 @@ class OllamaBackend:
         return json.loads(reply["message"]["content"])
 
 
+CLAUDE_MODEL = "claude-haiku-5-5"  # the default repair model: fast and cheap, and the edits are small
+
+
+class ClaudeBackend:
+    """Calls Claude through the Claude Code CLI (`claude -p`), the login the drafter already uses. The CLI has
+    no schema-constrained output, so the schema goes in the prompt and the reply is parsed as JSON; the harness
+    validates every edit anyway. Tools are off: the model only reads the prompt and answers."""
+
+    def __init__(self, model: str = CLAUDE_MODEL, timeout_s: int = 300):
+        self.model = model
+        self.timeout_s = timeout_s
+        self.cost_usd = 0.0
+
+    def propose_edits(self, system: str, prompt: str, schema: Dict[str, Any] = EDIT_SCHEMA) -> Dict[str, Any]:
+        import shutil
+        import subprocess
+        import tempfile
+
+        from pipeline.stage0_drafter import CLAUDE_BIN, _claude_env
+
+        if shutil.which(CLAUDE_BIN) is None and not Path(CLAUDE_BIN).is_file():
+            raise RuntimeError(f"The Claude CLI ('{CLAUDE_BIN}') is not on PATH. Install it and run `claude` once to "
+                               "log in, or repair with a local model instead (--healer ollama).")
+        text = (f"{system}\n\n{prompt}\n\nReply with one JSON object and nothing else (no prose, no code fence). "
+                f"It must match this JSON schema:\n{json.dumps(schema)}")
+        cmd = [CLAUDE_BIN, "-p", "--output-format", "json", "--model", self.model,
+               "--disallowedTools", "Bash,Edit,Write,Read,Glob,Grep,WebFetch,WebSearch,Task"]
+        with tempfile.TemporaryDirectory() as empty:  # no project files, memory or CLAUDE.md in reach
+            proc = subprocess.run(cmd, input=text, capture_output=True, text=True, cwd=empty, env=_claude_env(),
+                                  timeout=self.timeout_s)
+        try:
+            reply = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            raise RuntimeError(f"The Claude CLI exited with code {proc.returncode}: "
+                               f"{(proc.stderr or proc.stdout).strip()[:500]}") from None
+        if reply.get("is_error"):
+            raise RuntimeError(f"The Claude CLI reported an error: {reply.get('result') or reply.get('subtype')}")
+        self.cost_usd += float(reply.get("total_cost_usd") or 0.0)
+        try:
+            return _json_object(reply.get("result", ""))
+        except ValueError as e:  # not JSON: the round counts as one with no edits, and the model is told why
+            return {"reasoning": f"(reply was not the JSON asked for: {e})", "edits": []}
+
+
+def _json_object(text: str) -> Dict[str, Any]:
+    """The JSON object in a model's reply, with or without a code fence or words around it."""
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        raise ValueError(f"The model's reply holds no JSON object: {text[:200]!r}")
+    return json.loads(text[start:end + 1])
+
+
+def make_backend(healer: str = "claude", model: Optional[str] = None):
+    """The repair model: Claude through its CLI (the default) or a local model through Ollama."""
+    if healer == "ollama":
+        return OllamaBackend(model=model or "qwen2.5-coder:7b")
+    if healer == "claude":
+        return ClaudeBackend(model=model or CLAUDE_MODEL)
+    raise ValueError(f"Unknown healer {healer!r}: use 'claude' or 'ollama'.")
+
+
 @dataclass
 class GateResult:
     stage: str  # "compile" or "simulate"
@@ -426,7 +487,7 @@ class SelfHealer:
         With `escalate_after=k`, a simulator failure that comes back k times in a row (same
         knowledge-base entry, same step) is escalated: the model is told the knowledge base's
         suggestions have not worked, asked to reason past them, and asked to propose a change to
-        the knowledge base (HealResult.proposals). None never escalates (the benchmark default)."""
+        the knowledge base (HealResult.proposals). None never escalates."""
         emit = on_event or (lambda kind, data: None)
         current = copy.deepcopy(protocol)
         rounds: List[Dict[str, Any]] = []

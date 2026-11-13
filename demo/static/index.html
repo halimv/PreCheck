@@ -3,77 +3,82 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Self-Healing Protocol Demo</title>
+  <title>PreCheck</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <h1>Self-healing protocol demo</h1>
-        <p>Hamilton STARlet · PyLabRobot · local model</p>
-        <nav class="nav"><a class="active" href="/">Live run</a><a href="/benchmark">Benchmark results</a><a href="/library">Library</a><a href="/execute">Execute</a></nav>
+        <h1>PreCheck</h1>
+        <p>Hamilton STARlet · PyLabRobot</p>
+        <nav class="nav"><a class="active" href="/">Check</a><a href="/library">Library</a><a href="/execute">Execute</a></nav>
       </div>
 
       <form id="run-form" class="panel">
+        <div class="field">
+          <span>Protocol
+            <button type="button" class="info" data-tip="Describe the protocol in your own words, attach its PDF, or pick one already written as steps. Text and PDFs are turned into steps by Claude, on the deck that is on the STARlet." aria-label="Describe the protocol in your own words, attach its PDF, or pick one already written as steps. Text and PDFs are turned into steps by Claude, on the deck that is on the STARlet.">i</button></span>
+          <div class="tabs seg" role="tablist">
+            <button type="button" role="tab" id="tab-text" class="active" aria-selected="true">Describe</button>
+            <button type="button" role="tab" id="tab-saved" aria-selected="false">Saved</button>
+          </div>
+          <div id="source-text">
+            <textarea id="text" rows="6" placeholder="e.g. Serially dilute the culture 1:10 in 0.9% saline, six times, in a 96-well plate."></textarea>
+            <label class="attach"><input type="file" id="file" accept=".pdf,.txt,.md"><span id="file-name">Attach a PDF or text file</span></label>
+          </div>
+          <div id="source-saved" hidden>
+            <select id="protocol"></select>
+            <small id="protocol-info" class="hint"></small>
+          </div>
+        </div>
+
         <label class="field">
-          <span>Protocol</span>
-          <select id="protocol" required></select>
-        </label>
-        <label class="field">
-          <span>Repair model (Ollama)</span>
+          <span>Repair model
+            <button type="button" class="info" data-tip="The model that edits the protocol when a check fails. Claude Haiku is the default: fast, and the edits are small. A local Ollama model keeps everything on this computer." aria-label="The model that edits the protocol when a check fails. Claude Haiku is the default: fast, and the edits are small. A local Ollama model keeps everything on this computer.">i</button></span>
           <select id="model" required></select>
           <small id="model-note" class="note"></small>
         </label>
-        <fieldset class="field">
-          <legend>What the model sees on a failure</legend>
-          <label class="radio"><input type="radio" name="feedback" value="translated" checked> Lab-concept diagnostic</label>
-          <label class="radio"><input type="radio" name="feedback" value="raw"> Raw PyLabRobot error only</label>
-        </fieldset>
-        <label class="field">
-          <span>Maximum repair rounds</span>
-          <input id="max-rounds" type="number" min="1" max="10" value="5">
-        </label>
-        <label class="radio"><input id="escalate" type="checkbox" checked> If a failure repeats, let the model reason
-          past the knowledge base and propose an addition to it</label>
-        <button id="start" type="submit" class="primary">Run self-healing</button>
+
+        <details class="options">
+          <summary>Options</summary>
+          <label class="field">
+            <span>Repair rounds
+              <button type="button" class="info" data-tip="How many times the model may try to repair a failing protocol before the run gives up. Nothing unverified is ever accepted." aria-label="How many times the model may try to repair a failing protocol before the run gives up. Nothing unverified is ever accepted.">i</button></span>
+            <input id="max-rounds" type="number" min="1" max="10" value="5">
+          </label>
+          <label class="field">
+            <span>Failure report
+              <button type="button" class="info" data-tip="What the model is told when a check fails. Lab terms: the failure explained from the knowledge base, with suggested fixes. Raw error: PyLabRobot's exception only." aria-label="What the model is told when a check fails. Lab terms: the failure explained from the knowledge base, with suggested fixes. Raw error: PyLabRobot's exception only.">i</button></span>
+            <select id="feedback">
+              <option value="translated" selected>In lab terms</option>
+              <option value="raw">Raw error</option>
+            </select>
+          </label>
+          <label class="radio"><input id="escalate" type="checkbox" checked> Learn from repeats
+            <button type="button" class="info" data-tip="If the same failure comes back, the model is asked to reason past the knowledge base and propose an addition to it. A proposal whose fix worked waits for your approval." aria-label="If the same failure comes back, the model is asked to reason past the knowledge base and propose an addition to it. A proposal whose fix worked waits for your approval.">i</button></label>
+        </details>
+
+        <button id="start" type="submit" class="primary">Check protocol</button>
       </form>
-
-      <section class="panel" id="protocol-card" hidden>
-        <h2>Selected protocol</h2>
-        <p id="protocol-name" class="strong"></p>
-        <dl class="kv">
-          <dt>Steps</dt><dd id="protocol-steps"></dd>
-          <dt>Reagents loaded</dt><dd id="protocol-volumes"></dd>
-        </dl>
-      </section>
-
-      <section class="panel legend">
-        <h2>Each round</h2>
-        <ol>
-          <li><b>Verifier</b> checks the plan against safety rules</li>
-          <li><b>Compiler</b> turns it into PyLabRobot code</li>
-          <li><b>Simulator</b> runs that code on PLR's ChatterBox backend</li>
-        </ol>
-        <p>On a failure, the model proposes edits to the plan. The harness accepts them only if they fix
-          the failing step without changing how much liquid is moved. A passing plan can then be replayed in
-          PyLabRobot's own visualizer.</p>
-        <p>If the same failure comes back, the model is asked to think past the knowledge base's suggestions
-          and propose a change to it. A proposal whose fix healed the protocol waits for your approval.</p>
-      </section>
     </aside>
 
     <main class="main">
       <div class="statusbar">
         <span id="status-chip" class="chip idle">Idle</span>
-        <span id="status-text" class="muted">Choose a protocol and start a run.</span>
+        <span id="status-text" class="muted">Describe a protocol and check it.</span>
         <span id="elapsed" class="elapsed"></span>
       </div>
 
       <div id="empty" class="empty">
-        <h2>Watch a protocol repair itself</h2>
-        <p>Each round runs the plan through the three checking stages. When one fails, you'll see the
-          diagnostic, the model's reasoning and proposed edits, and whether the harness accepts them, as it happens.</p>
+        <h2>From a description to a protocol the STARlet can run</h2>
+        <ol class="flow">
+          <li data-tip="Claude writes the steps and names the labware each one needs. The labware is then taken from VENUS's library and placed on the deck that is on the instrument."><b>Draft</b></li>
+          <li data-tip="The steps are compiled to PyLabRobot and run on a model of this STARlet: its channels, their spacing, the deck, tips and volumes. Nothing is sent to the robot."><b>Check</b></li>
+          <li data-tip="When a check fails, the model edits the plan. An edit is kept only if it fixes the failing step without changing how much liquid moves."><b>Repair</b></li>
+          <li data-tip="What every well ends up holding and at what dilution, reagent volumes, limits, and suggestions. Watch the assay in 3D, then ask for changes in your own words."><b>Review</b></li>
+          <li data-tip="The passing protocol is saved with a standalone script and an AHC layout. Run it from the Execute page, or hand it to AHC for a supervised run."><b>Run</b></li>
+        </ol>
       </div>
 
       <div id="timeline" class="timeline" aria-live="polite"></div>

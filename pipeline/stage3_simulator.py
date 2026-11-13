@@ -21,6 +21,7 @@ from pylabrobot.resources import set_tip_tracking, set_volume_tracking
 
 from pipeline import diagnostics
 from pipeline.deck import build_deck, machines
+from pipeline.instrument import simulation_backend
 
 MODULE_FILENAME = "<plr_module>"
 STEP_COMMENT = re.compile(r"#\s*step\s+(\d+)\b")
@@ -72,7 +73,7 @@ class PLRSimulator:
         run_protocol = namespace["run_protocol"]
 
         deck, res = build_deck(self.deck_config, protocol.get("initial_volumes_ul"))
-        lh = LiquidHandler(backend=LiquidHandlerChatterboxBackend(num_channels=8), deck=deck)
+        lh = LiquidHandler(backend=simulation_backend(self.deck_config), deck=deck)
         log = io.StringIO()
         with contextlib.redirect_stdout(log):
             await lh.setup()
@@ -99,7 +100,8 @@ class PLRSimulator:
         state = diagnostics.capture_state(lh, res, self.deck_config, None)
         return SimulationResult(
             status="PASSED",
-            message=f"All {len(protocol['steps'])} steps ran in ChatterBox with tip and volume tracking.",
+            message=(f"All {len(protocol['steps'])} steps ran on {type(lh.backend).__name__} with tip and "
+                     "volume tracking."),
             log=log.getvalue(),
             final_state=state,
         )

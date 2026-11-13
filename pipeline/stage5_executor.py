@@ -40,7 +40,8 @@ from pylabrobot.resources import set_tip_tracking, set_volume_tracking
 
 from pipeline import deck as deck_module
 from pipeline.deck import build_deck, machines
-from pipeline.stage2_compiler import DEVICE_ACTIONS, translate_step
+from pipeline.instrument import simulation_backend
+from pipeline.stage2_compiler import DEVICE_ACTIONS, translate_step, venus_troughs
 
 BACKENDS = ("star", "chatterbox")
 MODES = ("full", "tip_check")
@@ -50,11 +51,11 @@ class ExecutionError(RuntimeError):
     pass
 
 
-def _step_coroutine(step: Dict[str, Any], kinds: Dict[str, str]):
+def _step_coroutine(step: Dict[str, Any], kinds: Dict[str, str], troughs: frozenset = frozenset()):
     """Compile one IR step into `async def _step(lh, res)` with the stage-2 translation."""
-    body = translate_step(step, kinds)
+    body = translate_step(step, kinds, troughs)
     src = "async def _step(lh, res):\n" + "\n".join("    " + line for line in body.splitlines())
-    namespace: Dict[str, Any] = {"heater_shaker": deck_module.heater_shaker}
+    namespace: Dict[str, Any] = {"heater_shaker": deck_module.heater_shaker, "reach": deck_module.reach}
     exec(compile(src, f"<step {step.get('step')}>", "exec"), namespace)
     return namespace["_step"]
 
@@ -102,12 +103,12 @@ class HardwareExecutor:
         self.check_supported(protocol)
         steps = protocol["steps"] if mode == "full" else tip_check_steps(protocol, self.deck_config)
         kinds = {lid: spec["kind"] for lid, spec in self.deck_config["labware"].items()}
-        compiled = [None if s["action"] == "return_tips" else _step_coroutine(s, kinds) for s in steps]
+        compiled = [None if s["action"] == "return_tips" else _step_coroutine(s, kinds, venus_troughs(self.deck_config)) for s in steps]
 
         set_tip_tracking(True)
         set_volume_tracking(True)
         deck, res = build_deck(self.deck_config, protocol.get("initial_volumes_ul"))
-        backend = STARBackend() if self.backend == "star" else LiquidHandlerChatterboxBackend(num_channels=8)
+        backend = STARBackend() if self.backend == "star" else simulation_backend(self.deck_config)
         lh = LiquidHandler(backend=backend, deck=deck)
         started = time.time()
         done = 0

@@ -1,0 +1,8 @@
+[
+  {
+    "round": 0,
+    "stage": "simulate",
+    "passed": true,
+    "result": "All 48 steps ran on STARChatterboxBackend with tip and volume tracking."
+  }
+]

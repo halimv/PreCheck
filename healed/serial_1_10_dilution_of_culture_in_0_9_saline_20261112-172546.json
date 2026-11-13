@@ -1,0 +1,1143 @@
+{
+  "protocol_name": "Serial 1:10 dilution of culture in 0.9% saline",
+  "description": "Makes a six-step 1:10 serial dilution (10^-1 to 10^-6) of an overnight culture in sterile 0.9% saline across columns 1-6 of a 96-well plate, with 8 replicate rows. Plating and colony counting happen off-deck.",
+  "assumptions": [
+    "The text says 1 mL culture in 10 mL solvent but calls it a 1:10 dilution. I kept the 1:10 dilution factor per step: 10 uL culture + 90 uL saline = 100 uL per well (the scaled version of 1 mL into 9 mL, the standard reading of a 1:10 dilution). If the literal 1:11 is wanted, change the diluent to 100 uL.",
+    "Volumes scaled from bench mL to plate uL: 1 mL culture becomes 10 uL and 90 uL diluent per well, to fit a 289.7 uL PCR well and 300 uL tips.",
+    "Six dilution wells (10^-1 to 10^-6) were chosen because the culture density is not given. Plate the well whose colony count falls in 10-100 CFU/mL, off-deck.",
+    "Each transfer is preceded by a 50 uL mix in the source well, and each well keeps about 90 uL after transfer, well above the 30 uL minimum.",
+    "Each transfer pass uses its own tip column (1 for diluent, 2 for culture and first transfer, 3-6 for the next transfers, 7 for the final mix), so each tip column is used once.",
+    "The culture is held in a reservoir, not a tube, so all 8 channels can draw from it. Only 80 uL is needed; 1 mL is loaded as margin.",
+    "Diluent (sterile 0.9% saline) is 4.32 mL in total (3 aspirations of 180 uL per channel), so 5 mL is loaded.",
+    "Plating onto agar, incubation and colony counting are not done by the robot and are left out of the steps."
+  ],
+  "labware": {
+    "tips": {
+      "kind": "tip_rack",
+      "tip_volume_ul": 300,
+      "filter": true,
+      "description": "300 uL filter tips for saline dispensing, culture transfers and mixing; columns 1-7 used, one column per pass"
+    },
+    "diluent": {
+      "kind": "reservoir",
+      "min_capacity_ul": 5000,
+      "description": "Sterile 0.9% normal saline, source for the 90 uL per-well diluent"
+    },
+    "culture": {
+      "kind": "reservoir",
+      "min_capacity_ul": 1000,
+      "description": "Optimum-growth culture, source for the 10 uL inoculum"
+    },
+    "dilution_plate": {
+      "kind": "plate",
+      "wells": 96,
+      "min_capacity_ul": 150,
+      "description": "Serial dilution plate; columns 1-6 hold 10^-1 to 10^-6, 8 replicate rows each"
+    },
+    "waste": {
+      "kind": "waste"
+    }
+  },
+  "reagents": {
+    "diluent": "0.9% normal saline (sterile)",
+    "culture": "Overnight culture grown to optimum growth"
+  },
+  "initial_volumes_ul": {
+    "diluent": 5000,
+    "culture": 1000
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "tips_on",
+      "labware": "tips",
+      "column": 1,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up tip column 1 for saline prefill"
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        0
+      ],
+      "description": "Aspirate 180 uL diluent with channel 0 only (single channel to respect 9 mm spacing in the diluent container)",
+      "step": 2
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        1
+      ],
+      "description": "Aspirate 180 uL diluent with channel 1 only (single channel to respect 9 mm spacing in the diluent container)",
+      "step": 3
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        2
+      ],
+      "description": "Aspirate 180 uL diluent with channel 2 only (single channel to respect 9 mm spacing in the diluent container)",
+      "step": 4
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        3
+      ],
+      "description": "Aspirate 180 uL diluent with channel 3 only (single channel to respect 9 mm spacing in the diluent container)",
+      "step": 5
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        4
+      ],
+      "description": "Aspirate 180 uL diluent with channel 4 only (single channel to respect 9 mm spacing in the diluent container)",
+      "step": 6
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        5
+      ],
+      "description": "Aspirate 180 uL diluent with channel 5 only (single channel to respect 9 mm spacing in the diluent container)",
+      "step": 7
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        6
+      ],
+      "description": "Aspirate 180 uL diluent with channel 6 only (single channel to respect 9 mm spacing in the diluent container)",
+      "step": 8
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        7
+      ],
+      "description": "Aspirate 180 uL diluent with channel 7 only (single channel to respect 9 mm spacing in the diluent container)",
+      "step": 9
+    },
+    {
+      "step": 10,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 1,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense 90 uL saline into column 1"
+    },
+    {
+      "step": 11,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 2,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense 90 uL saline into column 2"
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        0
+      ],
+      "description": "Aspirate 180 uL diluent with channel 0 (single channel, fits 9 mm container)",
+      "step": 12
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        1
+      ],
+      "description": "Aspirate 180 uL diluent with channel 1 (single channel, fits 9 mm container)",
+      "step": 13
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        2
+      ],
+      "description": "Aspirate 180 uL diluent with channel 2 (single channel, fits 9 mm container)",
+      "step": 14
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        3
+      ],
+      "description": "Aspirate 180 uL diluent with channel 3 (single channel, fits 9 mm container)",
+      "step": 15
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        4
+      ],
+      "description": "Aspirate 180 uL diluent with channel 4 (single channel, fits 9 mm container)",
+      "step": 16
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        5
+      ],
+      "description": "Aspirate 180 uL diluent with channel 5 (single channel, fits 9 mm container)",
+      "step": 17
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        6
+      ],
+      "description": "Aspirate 180 uL diluent with channel 6 (single channel, fits 9 mm container)",
+      "step": 18
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        7
+      ],
+      "description": "Aspirate 180 uL diluent with channel 7 (single channel, fits 9 mm container)",
+      "step": 19
+    },
+    {
+      "step": 20,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 3,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense 90 uL saline into column 3"
+    },
+    {
+      "step": 21,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 4,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense 90 uL saline into column 4"
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        0
+      ],
+      "description": "Aspirate diluent with channel 0 only (reservoir too narrow for 8 channels)",
+      "step": 22
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        1
+      ],
+      "description": "Aspirate diluent with channel 1 only (reservoir too narrow for 8 channels)",
+      "step": 23
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        2
+      ],
+      "description": "Aspirate diluent with channel 2 only (reservoir too narrow for 8 channels)",
+      "step": 24
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        3
+      ],
+      "description": "Aspirate diluent with channel 3 only (reservoir too narrow for 8 channels)",
+      "step": 25
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        4
+      ],
+      "description": "Aspirate diluent with channel 4 only (reservoir too narrow for 8 channels)",
+      "step": 26
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        5
+      ],
+      "description": "Aspirate diluent with channel 5 only (reservoir too narrow for 8 channels)",
+      "step": 27
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        6
+      ],
+      "description": "Aspirate diluent with channel 6 only (reservoir too narrow for 8 channels)",
+      "step": 28
+    },
+    {
+      "action": "aspirate",
+      "labware": "diluent",
+      "volume_ul": 180,
+      "channels": [
+        7
+      ],
+      "description": "Aspirate diluent with channel 7 only (reservoir too narrow for 8 channels)",
+      "step": 29
+    },
+    {
+      "step": 30,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 5,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense 90 uL saline into column 5"
+    },
+    {
+      "step": 31,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 6,
+      "volume_ul": 90,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Dispense 90 uL saline into column 6"
+    },
+    {
+      "step": 32,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Drop saline tips into waste"
+    },
+    {
+      "step": 33,
+      "action": "tips_on",
+      "labware": "tips",
+      "column": 2,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up tip column 2 for the culture inoculum"
+    },
+    {
+      "action": "aspirate",
+      "labware": "culture",
+      "volume_ul": 10,
+      "channels": [
+        0
+      ],
+      "description": "Aspirate 10 uL culture with channel 0 (single channel: culture container too narrow for 8 channels at once)",
+      "step": 34
+    },
+    {
+      "action": "aspirate",
+      "labware": "culture",
+      "volume_ul": 10,
+      "channels": [
+        1
+      ],
+      "description": "Aspirate 10 uL culture with channel 1 (single channel)",
+      "step": 35
+    },
+    {
+      "action": "aspirate",
+      "labware": "culture",
+      "volume_ul": 10,
+      "channels": [
+        2
+      ],
+      "description": "Aspirate 10 uL culture with channel 2 (single channel)",
+      "step": 36
+    },
+    {
+      "action": "aspirate",
+      "labware": "culture",
+      "volume_ul": 10,
+      "channels": [
+        3
+      ],
+      "description": "Aspirate 10 uL culture with channel 3 (single channel)",
+      "step": 37
+    },
+    {
+      "action": "aspirate",
+      "labware": "culture",
+      "volume_ul": 10,
+      "channels": [
+        4
+      ],
+      "description": "Aspirate 10 uL culture with channel 4 (single channel)",
+      "step": 38
+    },
+    {
+      "action": "aspirate",
+      "labware": "culture",
+      "volume_ul": 10,
+      "channels": [
+        5
+      ],
+      "description": "Aspirate 10 uL culture with channel 5 (single channel)",
+      "step": 39
+    },
+    {
+      "action": "aspirate",
+      "labware": "culture",
+      "volume_ul": 10,
+      "channels": [
+        6
+      ],
+      "description": "Aspirate 10 uL culture with channel 6 (single channel)",
+      "step": 40
+    },
+    {
+      "action": "aspirate",
+      "labware": "culture",
+      "volume_ul": 10,
+      "channels": [
+        7
+      ],
+      "description": "Aspirate 10 uL culture with channel 7 (single channel)",
+      "step": 41
+    },
+    {
+      "step": 42,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 1,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Add culture to column 1 (10^-1 well)"
+    },
+    {
+      "step": 43,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 1,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 1: aspirate 50 uL"
+    },
+    {
+      "step": 44,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 1,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 1: dispense 50 uL back"
+    },
+    {
+      "step": 45,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 1,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Take 10 uL transfer from column 1"
+    },
+    {
+      "step": 46,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 2,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer 10 uL into column 2 (10^-2 well)"
+    },
+    {
+      "step": 47,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Drop tips into waste"
+    },
+    {
+      "step": 48,
+      "action": "tips_on",
+      "labware": "tips",
+      "column": 3,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up tip column 3 for transfer 2 to 3"
+    },
+    {
+      "step": 49,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 2,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 2: aspirate 50 uL"
+    },
+    {
+      "step": 50,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 2,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 2: dispense 50 uL back"
+    },
+    {
+      "step": 51,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 2,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Take 10 uL transfer from column 2"
+    },
+    {
+      "step": 52,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 3,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer 10 uL into column 3 (10^-3 well)"
+    },
+    {
+      "step": 53,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Drop tips into waste"
+    },
+    {
+      "step": 54,
+      "action": "tips_on",
+      "labware": "tips",
+      "column": 4,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up tip column 4 for transfer 3 to 4"
+    },
+    {
+      "step": 55,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 3,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 3: aspirate 50 uL"
+    },
+    {
+      "step": 56,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 3,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 3: dispense 50 uL back"
+    },
+    {
+      "step": 57,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 3,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Take 10 uL transfer from column 3"
+    },
+    {
+      "step": 58,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 4,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer 10 uL into column 4 (10^-4 well)"
+    },
+    {
+      "step": 59,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Drop tips into waste"
+    },
+    {
+      "step": 60,
+      "action": "tips_on",
+      "labware": "tips",
+      "column": 5,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up tip column 5 for transfer 4 to 5"
+    },
+    {
+      "step": 61,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 4,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 4: aspirate 50 uL"
+    },
+    {
+      "step": 62,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 4,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 4: dispense 50 uL back"
+    },
+    {
+      "step": 63,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 4,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Take 10 uL transfer from column 4"
+    },
+    {
+      "step": 64,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 5,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer 10 uL into column 5 (10^-5 well)"
+    },
+    {
+      "step": 65,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Drop tips into waste"
+    },
+    {
+      "step": 66,
+      "action": "tips_on",
+      "labware": "tips",
+      "column": 6,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up tip column 6 for transfer 5 to 6"
+    },
+    {
+      "step": 67,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 5,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 5: aspirate 50 uL"
+    },
+    {
+      "step": 68,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 5,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 5: dispense 50 uL back"
+    },
+    {
+      "step": 69,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 5,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Take 10 uL transfer from column 5"
+    },
+    {
+      "step": 70,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 6,
+      "volume_ul": 10,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Transfer 10 uL into column 6 (10^-6 well)"
+    },
+    {
+      "step": 71,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Drop tips into waste"
+    },
+    {
+      "step": 72,
+      "action": "tips_on",
+      "labware": "tips",
+      "column": 7,
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Pick up fresh tip column 7 to mix the last well"
+    },
+    {
+      "step": 73,
+      "action": "aspirate",
+      "labware": "dilution_plate",
+      "column": 6,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 6: aspirate 50 uL"
+    },
+    {
+      "step": 74,
+      "action": "dispense",
+      "labware": "dilution_plate",
+      "column": 6,
+      "volume_ul": 50,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Mix column 6: dispense 50 uL back"
+    },
+    {
+      "step": 75,
+      "action": "tips_off",
+      "labware": "waste",
+      "volume_ul": 0,
+      "channels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "description": "Drop tips into waste"
+    }
+  ],
+  "deck_config": "decks/serial_1_10_dilution_of_culture_in_0_9_saline_20261112-172546.json",
+  "source": {
+    "name": "input",
+    "text": "serially dilute the (Optimum growth of culture obtained) in 0.9% normal saline solution previously sterilized in a ratio of 1: 10 dilution i.e. (1ml of the culture diluted in 10ml of the solvent) so that the dilution must yield atleast a count of 10\u2013100 CFU/ml."
+  }
+}

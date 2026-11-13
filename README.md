@@ -9,10 +9,17 @@ it can reach the robot.
 2. **The deck is built from the lab's labware.** Each need is matched to real labware: what is on the STARlet now
    first, then VENUS's labware library. What nothing fits goes back to Claude. The deck and a mapping (IR name →
    labware, barcode, carrier, position) are saved in `decks/`.
-3. **A local model repairs it.** The IR is compiled and simulated. When something fails, the failure is explained in
-   lab terms and a **local** Ollama model edits the IR, under checks that stop it from changing the experiment.
-4. **A person runs it.** The passing IR and its PLR script are saved in `healed/`. The demo's Execute page walks
-   you through setting up the deck, then runs the script on the STARlet.
+3. **It is checked on a model of this instrument, and repaired.** The IR is compiled and run on PyLabRobot's STAR
+   model, configured from the STARlet's own firmware file, on that deck. When something fails, the failure is
+   explained in lab terms and a model edits the IR, under checks that stop it from changing the experiment. Claude
+   Haiku is the default repair model (`--healer ollama` for a local one); at most 5 rounds.
+4. **The scientist reviews it.** What every well ends up holding and at what dilution, reagent volumes, limits,
+   and suggestions that are improvements, not errors. The assay is replayed in PyLabRobot's 3D viewer. A change
+   asked for in words goes back through steps 1-3 as the next version.
+5. **A person runs it.** The passing IR, its PLR script, a report and the same deck as an AHC layout are saved in
+   `healed/`. The demo's Execute page walks you through setting up the deck, then runs the script on the STARlet.
+   [AHC](https://github.com/xthomaswang/ahc) is optional: a supervised run with error recovery and an on-site
+   check that the deck is what the files say.
 
 ```bash
 python pipeline.py input.txt
@@ -52,7 +59,7 @@ protocol replayed in PyLabRobot's browser visualizer.
 | Entry point | `pipeline.py` | Runs the stages below from one command, live in the terminal |
 | 0. Drafter | `pipeline/stage0_drafter.py` | Protocol PDF/text → IR with the Claude CLI (`claude -p`), given the IR rules and the labware there is; saved in `drafts/` |
 | 0b. Deck builder | `pipeline/deck_builder.py` | Each labware need → real labware (the deck on the STARlet, then VENUS's library); unresolved needs back to Claude; deck config and mapping in `decks/` |
-| IR | `protocols/*.json`, `drafts/`, `healed/` | The plan a scientist reviews: labware needs, steps, and the reagent volumes loaded before the run |
+| IR | `drafts/`, `healed/` | The plan a scientist reviews: labware needs, steps, and the reagent volumes loaded before the run |
 | 1. Verifier | `pipeline/stage1_verifier.py` | **Out of the self-healing loop for now.** Safety rules (below) with its own plate and tip model; the simulator's failures drive the repairs |
 | 2. Compiler | `pipeline/stage2_compiler.py` | Deterministic IR → PyLabRobot code; one statement per step with a `# step N` comment |
 | Deck | `pipeline/deck.py`, `config/instrument/ahc_deck.lay` | The deck on the STARlet, read from VENUS's layout and labware library; maps each IR labware ID to a PLR resource |
@@ -97,8 +104,7 @@ volume, and `incubate`/`shake` with tips still mounted. The module and its tests
 
 Plate volume limits come from the deck (`pipeline/labware_limits.py`): a well's capacity from its geometry (VENUS's
 volume equations), the dead volume and how full a well may get from `config/precheck_policy.json` (defaults 30 µL and
-90%; the Cos_96_PCR plates on the real deck: 30-260.7 µL of 289.7). Each plate is tracked on its own. The reference
-simulation deck keeps its fixed limits (`config/reference/labware.json`: Corning 3595, 30-330 µL).
+90%; the Cos_96_PCR plates on the real deck: 30-260.7 µL of 289.7). Each plate is tracked on its own.
 
 | Error code | Cause | Fix |
 |---|---|---|
@@ -133,8 +139,7 @@ writes:
   - which protocols and models hit it;
   - the last few raw errors.
 
-  It is never sent to the model, so the model sees the same prompts however much has been recorded. Benchmark
-  runs don't record, so repeated synthetic scenes don't swamp the counts.
+  It is never sent to the model, so the model sees the same prompts however much has been recorded.
 
 Entries are checked top to bottom and the first match wins. Numbers that come from the deck or the whole protocol
 (container width, total volume the plan aspirates, unused tip columns) are small named "facts" in
@@ -167,10 +172,9 @@ Besides `tips_on`, `tips_off`, `aspirate` and `dispense`, the IR has three actio
 | `incubate` | plate, `duration_s`, optional `temperature_c` | Holds the plate on its heater-shaker; without `temperature_c` the heater switches off (room temperature) |
 | `shake` | plate, `duration_s`, `speed_rpm`, optional `temperature_c` | Shakes the plate on its heater-shaker |
 
-Device steps need a deck with a heater-shaker: `config/reference/plr_deck_plate_assay.json` (reference simulation
-deck) puts the Corning plate on a Hamilton heater-shaker (rails 26) and adds a wash-buffer trough. The real STARlet has
-no heater-shaker yet. A protocol picks its deck with a top-level `"deck_config"` field; new drafts name
-`config/instrument/ahc_deck.lay`, and protocols without one (all written before the real deck) use the reference deck. Hold times are not waited out in simulation.
+Device steps need a heater-shaker, which the deck on the STARlet does not have yet, so a protocol that uses them cannot
+be checked against this instrument. A protocol picks its deck with a top-level `"deck_config"` field; drafts name
+`config/instrument/ahc_deck.lay`, which is also the default. Hold times are not waited out in simulation.
 The model's prompt only describes these actions when the protocol uses them, so prompts for transfer-only
 protocols are unchanged.
 
@@ -222,7 +226,7 @@ times in a row, default 1), the next round is **escalated**:
    refused. Rejected proposals stay on record.
 
 The CLI and the demo escalate by default (`--escalate-after 0` or the demo's checkbox turns it off). The
-benchmark never escalates, so its results stay comparable.
+
 
 **Decision log.** Every repair decision in a recorded run is appended to `knowledge/decisions.jsonl`. Each line
 holds:
@@ -242,13 +246,7 @@ This is the dataset for a future policy that decides when to trust the knowledge
 pip install -r requirements.txt
 ```
 
-For self-healing, install [Ollama](https://ollama.com) and pull the default model:
-
-```bash
-ollama pull qwen2.5-coder:7b
-```
-
-For drafting from protocol text, install the Claude CLI, then run `claude` once to log in (the pipeline calls it
+Drafting and repair use the Claude CLI. Install it, then run `claude` once to log in (the pipeline calls it
 without a window, so it needs a saved login):
 
 ```bash
@@ -258,32 +256,46 @@ claude
 
 Set `CLAUDE_BIN` if the `claude` command is not on your PATH.
 
+To repair with a local model instead (`--healer ollama`), install [Ollama](https://ollama.com) and pull one:
+
+```bash
+ollama pull qwen2.5-coder:7b
+```
+
+## Claude plugin
+
+This repository is also a Claude Code plugin. Its `precheck` skill takes a protocol PDF or a description in a
+conversation, runs the pipeline, shows the review, and revises on request.
+
+```
+/plugin install precheck --marketplace halimv/LLNL_Capstone
+```
+
+From a local checkout: `/plugin marketplace add /path/to/LLNL_Capstone`, then `/plugin install precheck`. The
+skill runs `bin/precheck`, which is `pipeline.py` with this repository's Python (`PRECHECK_PYTHON`, else `.venv`,
+else the conda env `PRECHECK_CONDA_ENV`, default `bioinfo`).
+
 ## Live demo
 
-A local web page that runs the self-healing loop and shows each round as it happens: which stage failed, the
-lab-concept diagnostic, the model's reasoning and proposed edits, and whether the harness accepted them. When the
-protocol passes, **Watch in PyLabRobot's visualizer** opens PLR's own visualizer in a new tab and replays it (Stage 4).
+A local web page that runs the same flow as `pipeline.py` and shows it as it happens. Describe a protocol (or
+attach its PDF, or pick a saved IR) and press **Check protocol**: the draft and its labware, each repair round
+(the diagnostic, the model's reasoning and edits, whether the harness accepted them), then the design review.
+From there, **Watch in 3D** replays the assay in PyLabRobot's 3D viewer (Stage 4), **Revise** sends a ticked
+suggestion or a change in your own words back through the loop, and **Set up and run** opens the Execute page.
+Explanations sit behind the small "i" buttons.
 
 ```bash
 python demo/server.py            # then open http://127.0.0.1:8000  (--port to change)
 ```
 
-Needs Ollama running with a model pulled. Runs are saved to `build/demo/<run id>/`, one run at a time.
-
-The **Benchmark results** page (`/benchmark`) shows any run of `python -m benchmark.run` saved in
-`build/benchmark/`: healed counts and mean scores per condition, a healed-by-retry-budget table, a scene ×
-condition score grid, and every round of any run (click a cell). See
-[docs/serial_dilution_benchmark_spec.md](docs/serial_dilution_benchmark_spec.md) for how runs are scored.
+Needs the Claude CLI (or Ollama with a model pulled, for repairs only). Passing protocols are saved to `healed/`,
+per-round work files to `build/demo/<run id>/`; one run at a time.
 
 The **Library** page (`/library`) shows the static data the pipeline relies on. It is read-only: edit the files
 and reload.
 
-- **Labware tab:**
-  - the reference simulation deck: every item in `config/reference/labware.json`, with its key specifications and
-    which deck layouts place it;
-  - every `config/reference/plr_deck*.json` layout: labware positions, PyLabRobot resources, machines and carriers, and
-    which protocols use it;
-  - deck labware missing from the inventory, and inventory items no deck uses.
+- **Labware tab:** VENUS's labware library (the plates, tip racks and reagent containers Precheck can place) and
+  the deck on the STARlet now (`config/instrument/ahc_deck.lay`), with the protocols drafted for it. Nothing hand-written.
 - **Knowledge base tab:** every entry of `knowledge/diagnostics.json` in matching order, showing:
   - when it applies, in plain words;
   - the explanation and fixes sent to the model, with placeholders highlighted;
@@ -370,8 +382,7 @@ running `pipeline.py` from inside Claude Code behaves the same as from a plain t
 ### Running it on the STARlet (Execute page)
 
 The deck is the one in the instrument library's VENUS layout (`config/instrument/ahc_deck.lay`). A protocol drafted
-on it is compared with that layout; one drafted for the reference simulation deck is shown as such and cannot run on
-the STARlet. The **Execute** page (`python demo/server.py`, then `/execute`) walks through the setup:
+on it is compared with that layout. The **Execute** page (`python demo/server.py`, then `/execute`) walks through the setup:
 
 - Pick a protocol from `healed/`. The server re-runs the compiler and simulator on the file; one that no longer passes cannot run.
 - **Deck setup checklist**, built from the deck config and the passing IR: each carrier and its rails, each labware
@@ -435,7 +446,6 @@ at once instead of on the robot.
 | File | What it is | Source | Used by |
 |---|---|---|---|
 | `config/precheck_policy.json` | Choices, not measurements: dead volume and how full a well may get | The lab (defaults carried over from the old stand-in) | `pipeline/labware_limits.py`, stage 1 |
-| `config/reference/` | The hand-written stand-ins this replaced (deck, labware limits, starting state), kept for the benchmark and the reproducibility tests | Frozen | Reference protocols only |
 | `config/Labware/` | Venus's labware library: carriers (`.tml`), racks and plates (`.rck`), well shapes (`.ctr`) | Copied from the lab's Venus PC | `pipeline/venus_labware.py` |
 | `config/venus_labware.json` | Per Venus type: the PyLabRobot factory, the Venus file, and which geometry decks use (`build`) | Written; checked against `config/Labware` | `.lay` import, deck building |
 | `config/ML_Starlet.tpl` | Venus's deck template: the deck's fixed parts (waste block, tip waste, 96 head slide waste) | Copied from Venus | `pipeline/instrument.py` |
@@ -478,20 +488,20 @@ Pass a protocol IR file with `--protocol` instead of protocol text. Stage 0 is s
 Compile and simulate once and print the diagnostic on failure:
 
 ```bash
-python pipeline.py --protocol protocols/serial_dilution_v1.json
+python pipeline.py --protocol healed/serial_1_10_dilution_of_culture_in_0_9_saline_20261112-172546.json
 ```
 
 Repair a failing protocol with the local model:
 
 ```bash
-python pipeline.py --protocol protocols/serial_dilution_v1.json --heal
+python pipeline.py --protocol healed/serial_1_10_dilution_of_culture_in_0_9_saline_20261112-172546.json --heal
 ```
 
 Watch the passing (or repaired) protocol in PyLabRobot's visualizer (Stage 4). This opens a browser tab at
 `http://127.0.0.1:1337`, replays every step, and keeps the page open until you press Ctrl+C:
 
 ```bash
-python pipeline.py --protocol protocols/serial_dilution_v1.json --heal --visualize
+python pipeline.py --protocol healed/serial_1_10_dilution_of_culture_in_0_9_saline_20261112-172546.json --heal --visualize
 ```
 
 Options: `--model` (any Ollama model, default `qwen2.5-coder:7b`), `--max-rounds` (default 8),
@@ -505,51 +515,28 @@ to `build/<protocol>/`, and on success the passing IR, its standalone PyLabRobot
 ## Tests
 
 ```bash
-python -m pytest precheck/ tests/ -q
+python -m pytest tests/ -q
 ```
 
-- `precheck/test_verifier.py` (11 tests): the Stage 1 rules (volume boundaries, contamination tracking,
-  per-rack tip depletion, and the v0 reference protocol).
-- `tests/test_reproducible_v1.py` (4 tests): keeps `protocols/serial_dilution_v1.json` as a fixed, known-bad
-  reference. It must pass Stage 1, fail Stage 3 at step 2 with `CHANNEL_SPACING`, and pass after the reference
-  repair (split step 2, load 900 µL of stock), without the original file or input being modified.
-- `tests/test_device_steps.py` (9 tests): `empty`, `incubate` and `shake` on `protocols/plate_wash_incubate_demo.json`.
-  The demo is an uncorrected zero-shot Claude draft and stays known-bad (Stage 3 fails at step 28: 4000 µL of
-  wash buffer loaded, 6400 µL needed). The tests check that, the reference repair, each device failure code,
-  and that the intent guard protects holds and empties.
-- `tests/test_partial_edits.py` (4 tests): edits that pass their checks are applied even when another edit in the
-  same reply is rejected, and the rejected part is reported back to the model.
-- `tests/test_proposals.py` (12 tests): a repeated failure escalates (and only when asked to); a proposal is turned
-  into a template and kept only if its fix healed the protocol; approving merges it into the entries (a new entry
-  goes above the catch-all); rejecting keeps a record; each repair decision is logged.
-- `tests/test_deck_builder.py` (14 tests): the catalog read from VENUS's library (by structure; parts and lids left
-  out; tip racks only with a PyLabRobot tip model), safe volume equations, a serial dilution's needs resolved (deck
-  first, then the library, with barcodes), unresolved needs with the closest options, the built deck through compile
-  and simulate, the verifier out of the loop, the drafter's loop back to Claude with a stand-in CLI, the Execute page's real-deck drawing (with a protocol's
-  additions, and for a reference protocol), and built decks serializing for PyLabRobot's visualizer.
-- `tests/test_remote.py` (8 tests): the Pi runner without SSH: a relayed ChatterBox run, abort, stopping
-  when the connection closes, a lost connection, the exclusive STARlet lock, and what blocks a run on the Pi.
-- `tests/test_venus_layout.py` (12 tests): reads a real Venus 6.4 `.lay` (`tests/fixtures/venus/ahc_deck.lay`),
-  places its carriers and labware (the PCR plates from Venus's definition), checks positions against the file, and
-  compares it with a protocol's deck.
-- `tests/test_static_library.py` (21 tests): Venus's labware library (paths, carrier sites, rack A1, PyLabRobot vs
-  Venus, carriers and plates built from Venus), the instrument's facts against their sources, the 96 head initialized
-  with Venus's exact command, the layout handed to AHC, and the `.lay` as the deck: plate limits from Venus geometry,
-  each plate tracked on its own, a protocol on the real deck through the verifier, compiler and simulator, and what the drafter is told.
-- `tests/test_diagnostics_kb.py` (16 tests): the diagnostics knowledge base loads, no entry is hidden behind an
-  earlier one, typos in a hand edit (unknown field, condition, exception or fact; duplicate id) are reported when it
-  loads, and self-healing runs are recorded into `observed` (on a copy, never the real file).
-- `tests/test_text_to_execution.py` (9 tests): reading protocol text, pulling the IR out of Claude's reply,
-  catching unknown labware and actions in a draft, revisions (version names, the request reaching Claude, the
-  history kept, Claude run without the parent session's environment), the deck setup checklist, and Stage 5
-  running a healed protocol (full and tip check) on ChatterBox.
+- `tests/test_precheck_flow.py` (20 tests): the protocol flow from text to a checked protocol.
+- `tests/test_deck_builder.py` (13 tests): the catalog read from VENUS's library, a serial dilution's needs resolved on
+  the STARlet's deck (with barcodes), unresolved needs with the closest options, the built deck through compile and
+  simulate, the drafter's loop back to Claude, the Execute page's real-deck drawing, and decks serializing for PyLabRobot.
+- `tests/test_venus_layout.py` (11 tests): reads a real Venus 6.4 `.lay` (`tests/fixtures/venus/ahc_deck.lay`), places
+  its carriers and labware, checks positions and heights against the file, and compares it with a protocol's deck.
+- `tests/test_static_library.py` (19 tests): VENUS's labware library, the instrument's facts against their sources, the
+  96 head initialized with VENUS's exact command, the layout handed to AHC, and the real deck as ground truth.
+- `tests/test_diagnostics_kb.py` (13 tests): the diagnostics knowledge base loads, no entry is hidden behind an earlier
+  one, and typos in a hand edit are reported when it loads.
+- `tests/test_proposals.py` (3 tests) and `tests/test_partial_edits.py` (1 test): the knowledge-base proposal rules and
+  partial acceptance of a model reply. Most of their coverage was on the removed stand-in decks and is not rebuilt yet.
+- `tests/test_remote.py` (4 tests): the Pi runner, the exclusive STARlet lock and what blocks a run on the Pi.
+- `tests/test_text_to_execution.py` (6 tests): reading protocol text, pulling the IR out of Claude's reply, catching
+  unknown labware in a draft, and revisions.
+- `tests/test_ground_truth_ui.py` (4 tests): the Library, deck and API serve only VENUS ground truth.
 
 The live model loop, the real Claude CLI call and the STARlet itself have no unit tests; the notebook runs the
 model loop end to end.
-
-**Reproducibility rule:** `serial_dilution_v1.json` is the reference input for repair runs and stays in its
-original, failing form. Repairs are written to `healed/` and `build/<protocol>/`, or to `docs/runs/` for
-documented runs, and never over the original.
 
 ---
 
@@ -565,7 +552,7 @@ documented runs, and never over the original.
 │   ├── stage0_drafter.py         # Protocol PDF/text -> IR with the Claude CLI
 │   ├── stage1_verifier.py        # Safety rules on the IR
 │   ├── stage2_compiler.py        # IR -> PyLabRobot code (deterministic)
-│   ├── deck.py                   # Builds the PLR deck from a VENUS .lay (or a reference deck config)
+│   ├── deck.py                   # Builds the PLR deck from a VENUS .lay
 │   ├── deck_builder.py           # Stage 0b: labware needs -> real labware and positions; deck + mapping
 │   ├── labware_limits.py         # Plate volume limits: VENUS geometry + config/precheck_policy.json
 │   ├── instrument.py             # The instrument's facts (config/instrument/), checked against their sources
@@ -588,34 +575,18 @@ documented runs, and never over the original.
 │   ├── precheck_policy.json      # Dead volume and fill fraction (choices, not measurements)
 │   ├── ahc_starlet.json          # The carriers and labware AHC accepts
 │   ├── remote.json               # The Pi the STARlet is plugged into
-│   └── reference/                # Frozen stand-ins for the benchmark and tests: plr_deck*.json, labware.json,
-│                                 #   protocol_defaults.json (not the real system)
 ├── knowledge/
 │   ├── diagnostics.json          # Diagnostics knowledge base: what each simulator error means, how to fix it,
 │                                 #   what past self-healing runs learned about it, and proposals awaiting review
 │   └── decisions.jsonl           # One line per repair decision (created by the first recorded run)
-├── protocols/
-│   ├── serial_dilution_v1.json   # Full 68-step serial dilution; fixed known-bad reference (don't overwrite)
-│   ├── plate_wash_incubate_demo.json # Zero-shot Claude draft: coat, incubate, wash; known-bad (don't overwrite)
-│   ├── serial_dilution_v0.yaml   # Earlier 12-step version (used by the verifier tests)
-│   └── serial_dilution_simple.yaml
 ├── demo/
 │   ├── server.py                 # Live self-healing demo (Flask + Server-Sent Events)
-│   └── static/                   # Pages: live run (index/app.js), benchmark, library, execute; shared common.js, style.css
-├── benchmark/                    # Repair benchmark: scenes, model backends, scorer (python -m benchmark.run)
+│   └── static/                   # Pages: check (index/app.js), library, execute; shared common.js, style.css
 ├── notebooks/
 │   └── pipeline_walkthrough.ipynb
-├── tests/
-│   ├── test_reproducible_v1.py   # Keeps serial_dilution_v1.json fixed as the known-bad reference
-│   ├── test_device_steps.py      # empty / incubate / shake on the plate-assay demo
-│   ├── test_partial_edits.py     # Partial acceptance of a model reply
-│   ├── test_diagnostics_kb.py    # The error knowledge base
-│   ├── test_proposals.py         # Escalation, knowledge proposals, decision log
-│   └── test_text_to_execution.py # Drafting, deck checklist, Stage 5 on ChatterBox
+├── tests/                       # See the list above (python -m pytest tests -q)
 ├── docs/
-│   ├── self_healing_run_v1.md    # Report on the first successful repair run
-│   └── runs/                     # Logs and healed IRs from documented runs
-├── precheck/                     # Verifier tests (+ older copies of the verifier and configs)
+│   └── self_healing_run_v1.md    # Report on the first successful repair run
 └── archive/                      # Earlier code kept for reference; not used by the pipeline
 ```
 
@@ -654,9 +625,3 @@ successful repair of `serial_dilution_v1` in 3 rounds ([report](docs/self_healin
 - Moving plates (gripper) and returning tips to the rack for reuse. Without tip return, washing with the
   8-channel head needs a fresh tip column per column per wash, so wash-heavy assays run out of tips quickly.
 - Spill risk from shaking full wells, and plate reading. Neither is checked.
-- `serial_dilution_v0.yaml` and `serial_dilution_simple.yaml` have no `initial_volumes_ul`, so their sources start
-  empty in Stage 3.
-- `serial_dilution_v1.json` metadata says `final_volume_per_well_ul: 100`, but its steps leave every well at
-  50 µL. The pipeline only reads the steps; the metadata or the volumes should be corrected.
-- `precheck/` still holds older copies of the verifier and configs. The tests use `pipeline/stage1_verifier.py`
-  and `config/`.

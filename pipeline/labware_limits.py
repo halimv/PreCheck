@@ -4,9 +4,6 @@ On a real deck the limits follow from ground truth plus policy: a well's capacit
 (VENUS's volume equations for labware built from VENUS), and config/precheck_policy.json says how much of it a
 protocol may use (dead volume at the bottom, fill fraction at the top). Nothing about the labware is typed in.
 
-A reference simulation deck (config/reference/) names a fixed limits file in `labware_limits` instead, so the
-benchmark and the tests keep the numbers their documented results were measured with.
-
 The result has the shape stage 1 reads: {"plates": {labware id: {"well_specifications": {"well_volume_range":
 {"min_ul", "max_ul", ...}}}}}.
 """
@@ -25,8 +22,6 @@ def load_policy(root: Path = ROOT) -> Dict[str, Any]:
 
 
 def labware_limits(deck_config: Dict[str, Any], root: Path = ROOT) -> Dict[str, Any]:
-    if deck_config.get("labware_limits"):
-        return json.loads((root / deck_config["labware_limits"]).read_text())
     rules = load_policy(root)["plates"]
     _, res = build_deck(deck_config)
     plates = {}

@@ -113,3 +113,65 @@ def apply_to_deck(deck: plr.Deck, instrument: Dict[str, Any]) -> None:
 def real_deck_layout(instrument: Dict[str, Any], root: Path = ROOT) -> Path:
     """The VENUS layout of what is on the instrument's deck now."""
     return root / instrument["deck_layout"]["file"]
+
+
+# --- The instrument as a simulation backend ---
+
+_FIRMWARE_NAMES = {  # PyLabRobot's configuration field -> the firmware configuration's key, where they differ
+    "auto_load_installed": "autoload_installed", "auto_load_size_slots": "autoload_size_slots",
+    "ka_core_96_head_installed": "head96_installed", "core_96_head_installed": "head96_installed",
+    "dispensing_head_384_installed": "head384_installed", "workspace_range": "workspace_x_range",
+}
+
+
+def _configured(klass: type, firmware: Dict[str, Any], **extra: Any) -> Any:
+    """`klass` (one of PyLabRobot's STAR configuration dataclasses) filled from the firmware configuration: every
+    field the firmware reports is the instrument's, the rest keep PyLabRobot's defaults."""
+    import dataclasses
+    values = {}
+    for f in dataclasses.fields(klass):
+        value = firmware.get(_FIRMWARE_NAMES.get(f.name, f.name))
+        if value is not None and not isinstance(value, dict):
+            values[f.name] = tuple(value) if isinstance(value, list) else value
+    return klass(**{**values, **extra})
+
+
+def simulation_backend(deck_config: Dict[str, Any], root: Path = ROOT):
+    """The backend a dry run uses. For a deck that names its instrument it is PyLabRobot's STAR model
+    (STARChatterboxBackend: the real backend's checks and firmware commands, with nothing sent) configured as
+    that instrument reports itself: its channels, their minimum pitch, the 96 head, iSWAP, autoload, deck size
+    and tip waste. A deck that names no instrument gets the generic ChatterBox."""
+    from pylabrobot.legacy.liquid_handling.backends import LiquidHandlerChatterboxBackend
+    if not deck_config.get("instrument"):
+        return LiquidHandlerChatterboxBackend(num_channels=8)
+    from pylabrobot.legacy.liquid_handling.backends.hamilton.STAR_backend import (
+        DriveConfiguration, ExtendedConfiguration, MachineConfiguration)
+    from pylabrobot.legacy.liquid_handling.backends.hamilton.STAR_chatterbox import STARChatterboxBackend
+
+    instrument = load_instrument(deck_config["instrument"], root)
+    firmware = json.loads((root / instrument["firmware_configuration"]).read_text())["device"]
+    arm = lambda side: _configured(DriveConfiguration, firmware[side]) if firmware.get(side) else None  # noqa: E731
+    n = instrument["channels"]["count"]
+    return STARChatterboxBackend(
+        num_channels=n,
+        machine_configuration=_configured(MachineConfiguration, firmware),
+        extended_configuration=_configured(ExtendedConfiguration, firmware, left_x_drive=arm("left_arm"),
+                                           right_x_drive=arm("right_arm")),
+        channels_minimum_y_spacing=[float(instrument["channels"]["min_pitch_mm"])] * n)
+
+
+def use(instrument: str = None, labware: str = None) -> None:
+    """Point Precheck at other ground truth than the repo's default: an instrument file (config/instrument/
+    <serial>.json: it names the firmware configuration, VENUS's deck template and the layout of the deck now) and
+    a VENUS labware library (a `Labware` folder). Paths are relative to the repo root, or absolute."""
+    global DEFAULT_INSTRUMENT
+    if instrument:
+        DEFAULT_INSTRUMENT = str(instrument)
+        _load.cache_clear()
+    if labware:
+        from pipeline import deck_builder, venus_labware
+        if not Path(ROOT / labware).is_dir():
+            raise InstrumentError(f"{labware} is not a folder: give VENUS's Labware folder.")
+        venus_labware.LIBRARY = deck_builder.LIBRARY = str(labware)
+        for cached in (venus_labware._index, deck_builder._catalog, deck_builder._category_names):
+            cached.cache_clear()

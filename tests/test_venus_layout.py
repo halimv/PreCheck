@@ -13,7 +13,6 @@ from pipeline.venus_layout import (LayoutError, compare_with_deck, deck_config_f
 
 ROOT = Path(__file__).resolve().parent.parent
 LAY = ROOT / "tests" / "fixtures" / "venus" / "ahc_deck.lay"
-HEALED_V1 = ROOT / "docs" / "runs" / "2026-10-21_v1_qwen2.5-coder-7b" / "serial_dilution_v1_healed.json"
 
 
 def pairs():
@@ -84,25 +83,18 @@ def test_a_factory_with_other_geometry_shows_up_as_a_position_difference():
     spec["factory"] = "Greiner_384_wellplate_28ul_Fb"
     del spec["build"], spec["venus"]
     bad = [c for c in position_checks(pairs(), config) if not c["ok"]]
-    assert [c["id"] for c in bad] == ["Cos_96_PCR_0001"]
+    assert {c["id"] for c in bad} == {"Cos_96_PCR_0001"}
 
 
 def test_tip_size_is_not_visible_in_positions():
     # 300 and 1000 uL racks share a footprint, so only the Venus type -> factory map guards the tip size.
     config, _ = deck_config_from_lay(pairs(), load_venus_map(ROOT))
     config["labware"]["STF_L_0001"]["factory"] = "hamilton_96_tiprack_1000uL_filter"
-    assert all(c["ok"] for c in position_checks(pairs(), config))
-
-
-def test_the_v1_protocol_does_not_match_this_deck():
-    protocol = json.loads(HEALED_V1.read_text())
-    lay_deck, _ = deck_config_from_lay(pairs(), load_venus_map(ROOT))
-    result = compare_with_deck(lay_deck, load_deck_config(str(ROOT / "config" / "reference" / "plr_deck.json")), _used_labware(protocol))
-    assert not result["ok"]
-    by_id = {i["id"]: i for i in result["items"]}
-    assert by_id["hamilton_tiprack_96"]["status"] == "different"
-    assert "STF_L_0001" in by_id["hamilton_tiprack_96"]["detail"]  # same tips, other carrier position
-    assert "no carrier at rail 13" in by_id["reservoir_50ml"]["detail"]
+    checks = position_checks(pairs(), config)
+    assert all(c["ok"] for c in checks if "dz" not in c)
+    # ...but the heights do show it: a 1000 uL tip is not as long as VENUS's 300 uL one.
+    assert {(c["id"], c["what"]) for c in checks if not c["ok"]} == {("STF_L_0001", "tip top height"),
+                                                                    ("STF_L_0001", "tip end height")}
 
 
 def test_a_protocol_on_the_layouts_own_deck_matches():

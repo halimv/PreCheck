@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Self-healing demo: watch the repair loop run live, then open the result in PLR's visualizer.
+"""Precheck in the browser: the same flow as `python pipeline.py`, watched live.
 
     python demo/server.py            # then open http://127.0.0.1:8000
 
-The page picks a protocol and a local Ollama model and starts a run. The server runs
-SelfHealer.heal in a background thread and streams each event (stage results, the diagnostic,
-the model's reasoning and edits, the harness verdict) to the page with Server-Sent Events.
-When a run ends with a passing protocol, "Watch in PyLabRobot" starts stage 4 (PyLabRobot's own
-browser visualizer) and replays it there.
+The page takes a protocol (its text, a PDF or text file, or a saved IR) and starts a run. The server drafts the
+IR and its deck with the Claude CLI when it was given text, then runs SelfHealer.heal in a background thread
+(Claude Haiku by default, or a local Ollama model) and streams each event (stage results, the diagnostic, the
+model's reasoning and edits, the harness verdict) to the page with Server-Sent Events. A passing protocol is
+written to healed/ with its design review, suggestions and AHC layout (pipeline/flow.py); the page shows them,
+replays the assay in PyLabRobot's 3D viewer (stage 4), and sends a change the scientist asks for back through
+the same loop as the next version.
 
 The Execute page (/execute) runs stage 5 on a protocol in healed/ (written by `python pipeline.py <protocol>`):
 it re-runs the compiler and simulator, walks the operator through the deck setup checklist built from the deck
@@ -18,6 +20,7 @@ here or on the Pi the STARlet's USB cable is plugged into (config/remote.json, o
 import argparse
 import asyncio
 import copy
+import io
 import json
 import sys
 import threading
@@ -35,12 +38,14 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from pipeline import diagnostics, proposals  # noqa: E402
-from pipeline.deck import DEFAULT_DECK, INSTRUMENT_DECK, deck_config_for, is_reference, load_deck_config  # noqa: E402
+from pipeline import library_view  # noqa: E402
+from pipeline.deck import DEFAULT_DECK, INSTRUMENT_DECK, DeckError, deck_config_for, load_deck_config  # noqa: E402
 from pipeline.instrument import load_instrument, real_deck_layout  # noqa: E402
 from pipeline.remote import RemoteExecutor, load_remote, refusal, remote_status  # noqa: E402
 from pipeline.remote import sync as sync_remote  # noqa: E402
-from pipeline.self_heal import OllamaBackend, SelfHealer, ir_diff  # noqa: E402
-from pipeline.stage2_compiler import compile_protocol  # noqa: E402
+from pipeline.flow import finish, next_stem  # noqa: E402
+from pipeline.self_heal import CLAUDE_MODEL, SelfHealer, ir_diff, make_backend  # noqa: E402
+from pipeline.stage0_drafter import DraftError, draft, revise  # noqa: E402
 from pipeline.setup_guide import _used_labware, deck_drawing, setup_checklist  # noqa: E402
 from pipeline.venus_layout import LayoutError, compare_with_deck, import_layout  # noqa: E402
 from pipeline.stage4_visualizer import VisualizerSession, replay, start_visualizer  # noqa: E402
@@ -50,29 +55,32 @@ CONFIG = ROOT / "config"
 PROTOCOLS = ROOT / "protocols"
 WORK = ROOT / "build" / "demo"
 HEALED = ROOT / "healed"  # written by `python pipeline.py ...`
-BENCHMARKS = ROOT / "build" / "benchmark"  # written by `python -m benchmark.run`
 OLLAMA = "http://localhost:11434"
+UPLOADS = WORK / "uploads"
+CLAUDE_MODELS = [CLAUDE_MODEL, "claude-sonnet-5-5", "claude-opus-5-5"]  # repair models offered; the first is the default
+MAX_SOURCE_BYTES = 20 * 1024 * 1024
 REPLAY_STEP_DELAY_S = 0.4
 
 app = Flask(__name__, static_folder=str(Path(__file__).parent / "static"), static_url_path="/static")
 
 
 class Run:
-    """One self-healing run: its settings, the events emitted so far, and the outcome."""
+    """One Precheck run: where the protocol comes from, its settings, the events emitted so far, and the outcome.
+    `source` is {"kind": "protocol", "file"} (a saved IR), {"kind": "text", "text" | "path"} (to draft), or
+    {"kind": "revise", "from", "note"} (a passing protocol and the change asked for)."""
 
-    def __init__(self, protocol_file: str, protocol: Dict[str, Any], model: str, max_rounds: int, feedback: str,
+    def __init__(self, source: Dict[str, Any], healer: str, model: Optional[str], max_rounds: int, feedback: str,
                  escalate: bool = True):
         self.id = uuid.uuid4().hex[:8]
-        self.protocol_file = protocol_file
-        self.original = protocol
-        self.deck_config = deck_config_for(protocol, ROOT)
-        self.model, self.max_rounds, self.feedback = model, max_rounds, feedback
+        self.source = source
+        self.healer, self.model, self.max_rounds, self.feedback = healer, model, max_rounds, feedback
         self.escalate = escalate  # let a repeating failure escalate to a knowledge-base proposal
         self.started = time.time()
         self.events: List[Dict[str, Any]] = []
         self.cond = threading.Condition()
         self.finished = False
         self.passing: Optional[Dict[str, Any]] = None  # the protocol that passed compile and simulate, if any
+        self.name: Optional[str] = None  # its name in healed/
 
     def emit(self, kind: str, data: Dict[str, Any]) -> None:
         with self.cond:
@@ -88,26 +96,63 @@ class Run:
 RUNS: Dict[str, Run] = {}
 
 
+def _instrument_deck_file() -> str:
+    return load_instrument()["deck_layout"]["file"]
+
+
+def _draft_summary(d) -> Dict[str, Any]:
+    mapping = json.loads(d.mapping_path.read_text()) if d.mapping_path else {"labware": {}, "operator_changes": []}
+    return {
+        "file": str(d.path.relative_to(ROOT)), "attempts": d.attempts, "cost_usd": round(d.cost_usd, 4),
+        "protocol_name": d.protocol.get("protocol_name"), "step_count": len(d.protocol["steps"]),
+        "assumptions": d.protocol.get("assumptions", []),
+        "labware": [{"name": name, "type": m.get("venus_type") or "tip waste", "action": m["action"].replace("_", " "),
+                     "where": (f"{m['carrier']['venus_type']} rail {m['carrier']['rails']}, position "
+                               f"{m['position']['hamilton']}") if m.get("carrier") else "the deck's tip waste"}
+                    for name, m in mapping["labware"].items()],
+        "operator_changes": mapping["operator_changes"],
+    }
+
+
+def _protocol_for(run: Run):
+    """(protocol, file name, the protocol it revises or None): drafted or revised by Claude when the source asks."""
+    src = run.source
+    if src["kind"] == "protocol":
+        return yaml.safe_load((PROTOCOLS / src["file"]).read_text()), src["file"], None
+    deck_file = _instrument_deck_file()
+    base_deck = load_deck_config(str(ROOT / deck_file))  # the deck on the STARlet: needs resolve against it
+    if src["kind"] == "text":
+        run.emit("draft_request", {"what": "Drafting the protocol and choosing its labware with Claude"})
+        d = draft(src.get("path") or src["text"], base_deck, deck_file=deck_file, out=io.StringIO())
+        previous = None
+    else:
+        run.emit("draft_request", {"what": "Revising the protocol with Claude", "note": src["note"]})
+        previous = src["from"]
+        d = revise(previous, src["note"], base_deck, current_name=f"{src['name']}.json", deck_file=deck_file,
+                   out=io.StringIO(), stem=next_stem(src["name"]))
+    run.emit("draft", _draft_summary(d))
+    return d.protocol, d.path.name, previous
+
+
 def run_worker(run: Run) -> None:
-    run.emit("start", {
-        "protocol_file": run.protocol_file,
-        "protocol_name": run.original.get("protocol_name", run.protocol_file),
-        "step_count": len(run.original["steps"]),
-        "initial_volumes_ul": run.original.get("initial_volumes_ul", {}),
-        "model": run.model, "max_rounds": run.max_rounds, "feedback": run.feedback, "escalate": run.escalate,
-    })
     work_dir = WORK / run.id
     try:
-        healer = SelfHealer(
-            deck_config=run.deck_config,
-            backend=OllamaBackend(model=run.model),
-            work_dir=str(work_dir),
-            feedback_mode=run.feedback,
-        )
-        result = healer.heal(run.original, max_rounds=run.max_rounds, on_event=run.emit,
+        protocol, protocol_file, previous = _protocol_for(run)
+        deck_config = deck_config_for(protocol, ROOT)
+        backend = make_backend(run.healer, run.model)
+        run.emit("start", {
+            "protocol_file": protocol_file,
+            "protocol_name": protocol.get("protocol_name", protocol_file),
+            "step_count": len(protocol["steps"]),
+            "initial_volumes_ul": protocol.get("initial_volumes_ul", {}),
+            "model": backend.model, "max_rounds": run.max_rounds, "feedback": run.feedback, "escalate": run.escalate,
+            "simulated_on": "the STAR model of this instrument" if deck_config.get("instrument") else "the generic ChatterBox",
+        })
+        healer = SelfHealer(deck_config=deck_config, backend=backend, work_dir=str(work_dir), feedback_mode=run.feedback)
+        result = healer.heal(protocol, max_rounds=run.max_rounds, on_event=run.emit,
                              escalate_after=1 if run.escalate else None)
-        diagnostics.record_run(result.rounds, run.protocol_file, run.model)
-        stored = proposals.submit(result.proposals, run.protocol_file, run.model)
+        diagnostics.record_run(result.rounds, protocol_file, backend.model)
+        stored = proposals.submit(result.proposals, protocol_file, backend.model)
         done: Dict[str, Any] = {
             "status": result.status,
             "repair_rounds": len(result.rounds) - 1,
@@ -117,16 +162,17 @@ def run_worker(run: Run) -> None:
             "proposals_not_kept": [c for c in result.proposals if c["problems"]],
         }
         if result.status in ("HEALED", "ALREADY_PASSING"):
-            run.passing = result.protocol
-        if result.status == "HEALED":
-            stem = Path(run.protocol_file).stem
-            (work_dir / f"{stem}_healed.json").write_text(json.dumps(result.protocol, indent=2))
-            (work_dir / f"{stem}_healed_plr.py").write_text(compile_protocol(result.protocol, run.deck_config))
-            done["diff"] = ir_diff(run.original, result.protocol)
-            done["saved_to"] = str(work_dir.relative_to(ROOT))
+            run.passing, run.name = result.protocol, Path(protocol_file).stem
+            done["report"] = finish(result.protocol, deck_config, run.name, result.rounds, status=result.status)
+            if result.status == "HEALED":
+                done["diff"] = ir_diff(protocol, result.protocol)
+            if previous is not None:
+                done["revision_diff"] = ir_diff(previous, result.protocol)
         run.emit("done", done)
     except urllib.error.URLError:
         run.emit("run_error", {"message": f"Could not reach Ollama at {OLLAMA}. Is it running (`ollama serve`)?"})
+    except (DraftError, DeckError) as e:
+        run.emit("run_error", {"message": str(e)})
     except Exception as e:  # surface anything else on the page instead of a silent stall
         run.emit("run_error", {"message": f"{type(e).__name__}: {e}"})
     finally:
@@ -188,36 +234,83 @@ def list_protocols():
 
 @app.get("/api/models")
 def list_models():
+    """The repair models on offer: Claude through its CLI (the default), and whatever Ollama has pulled."""
+    import shutil
+    from pipeline.stage0_drafter import CLAUDE_BIN
+    claude = shutil.which(CLAUDE_BIN) is not None or Path(CLAUDE_BIN).is_file()
     try:
         with urllib.request.urlopen(f"{OLLAMA}/api/tags", timeout=3) as r:
-            names = [m["name"] for m in json.loads(r.read())["models"]]
-        return jsonify({"available": True, "models": names})
+            local = [m["name"] for m in json.loads(r.read())["models"]]
     except OSError:
-        return jsonify({"available": False, "models": []})
+        local = []
+    return jsonify({"claude": {"available": claude, "models": CLAUDE_MODELS, "default": CLAUDE_MODEL},
+                    "ollama": {"available": bool(local), "models": local}})
+
+
+def _settings(body: Dict[str, Any]) -> Dict[str, Any]:
+    healer = body.get("healer", "claude")
+    feedback = body.get("feedback", "translated")
+    if healer not in ("claude", "ollama"):
+        abort(Response(json.dumps({"error": "healer must be 'claude' or 'ollama'."}), 400, mimetype="application/json"))
+    if feedback not in ("translated", "raw"):
+        abort(Response(json.dumps({"error": "feedback must be 'translated' or 'raw'."}), 400, mimetype="application/json"))
+    escalate = body.get("escalate", True)
+    return {"healer": healer, "model": body.get("model") or None, "feedback": feedback,
+            "max_rounds": max(1, min(int(body.get("max_rounds", 5)), 10)),
+            "escalate": escalate not in (False, "false", "0", "")}
+
+
+def _start(run: Run):
+    RUNS[run.id] = run
+    threading.Thread(target=run_worker, args=(run,), daemon=True, name=f"run-{run.id}").start()
+    return jsonify({"run_id": run.id})
 
 
 @app.post("/api/runs")
 def create_run():
+    """Start a run from a saved IR (`protocol`), from protocol text (`text`), or from an uploaded PDF or text
+    file (`file`, multipart)."""
+    if any(not r.finished for r in RUNS.values()):
+        return jsonify({"error": "A run is already in progress."}), 409
+    body = request.form.to_dict() if request.files or request.form else request.get_json(force=True)
+    upload = request.files.get("file")
+    if upload and upload.filename:
+        suffix = Path(upload.filename).suffix.lower()
+        if suffix not in (".pdf", ".txt", ".md"):
+            return jsonify({"error": "Upload a PDF or a text file."}), 400
+        data = upload.read(MAX_SOURCE_BYTES + 1)
+        if len(data) > MAX_SOURCE_BYTES:
+            return jsonify({"error": "That file is larger than 20 MB."}), 400
+        UPLOADS.mkdir(parents=True, exist_ok=True)
+        stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in Path(upload.filename).stem)[:60] or "protocol"
+        path = UPLOADS / f"{uuid.uuid4().hex[:6]}_{stem}{suffix}"
+        path.write_bytes(data)
+        source = {"kind": "text", "path": str(path)}
+    elif (body.get("text") or "").strip():
+        source = {"kind": "text", "text": body["text"].strip()}
+    else:
+        path = PROTOCOLS / Path(body.get("protocol") or "").name
+        if not path.is_file():
+            return jsonify({"error": "Describe a protocol, attach a file, or choose a saved protocol."}), 400
+        source = {"kind": "protocol", "file": path.name}
+    return _start(Run(source=source, **_settings(body)))
+
+
+@app.post("/api/runs/<run_id>/revise")
+def revise_run(run_id: str):
+    """Send a passing protocol back through the loop with the change the scientist asks for, as its next version."""
+    parent = RUNS.get(run_id) or abort(404)
+    if parent.passing is None:
+        return jsonify({"error": "Only a protocol that passed can be revised."}), 409
     if any(not r.finished for r in RUNS.values()):
         return jsonify({"error": "A run is already in progress."}), 409
     body = request.get_json(force=True)
-    path = PROTOCOLS / Path(body.get("protocol", "")).name
-    if not path.is_file():
-        return jsonify({"error": f"Unknown protocol {body.get('protocol')!r}."}), 400
-    feedback = body.get("feedback", "translated")
-    if feedback not in ("translated", "raw"):
-        return jsonify({"error": "feedback must be 'translated' or 'raw'."}), 400
-    run = Run(
-        protocol_file=path.name,
-        protocol=yaml.safe_load(path.read_text()),
-        model=body.get("model") or "qwen2.5-coder:7b",
-        max_rounds=max(1, min(int(body.get("max_rounds", 5)), 10)),
-        feedback=feedback,
-        escalate=bool(body.get("escalate", True)),
-    )
-    RUNS[run.id] = run
-    threading.Thread(target=run_worker, args=(run,), daemon=True, name=f"run-{run.id}").start()
-    return jsonify({"run_id": run.id})
+    note = (body.get("note") or "").strip()
+    if not note:
+        return jsonify({"error": "Say what to change."}), 400
+    settings = {"healer": parent.healer, "model": parent.model, "feedback": parent.feedback,
+                "max_rounds": parent.max_rounds, "escalate": parent.escalate}
+    return _start(Run(source={"kind": "revise", "from": parent.passing, "name": parent.name, "note": note}, **settings))
 
 
 @app.get("/api/runs/<run_id>/events")
@@ -252,10 +345,9 @@ def healed_ir(run_id: str):
     run = RUNS.get(run_id) or abort(404)
     if run.passing is None:
         abort(404)
-    stem = Path(run.protocol_file).stem
     return Response(
         json.dumps(run.passing, indent=2), mimetype="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{stem}_healed.json"'},
+        headers={"Content-Disposition": f'attachment; filename="{run.name}.json"'},
     )
 
 
@@ -264,7 +356,7 @@ def visualize(run_id: str):
     run = RUNS.get(run_id) or abort(404)
     if run.passing is None:
         return jsonify({"error": "Only a protocol that passed the simulator can be replayed."}), 409
-    name = f"{Path(run.protocol_file).stem} ({len(run.passing['steps'])} steps)"
+    name = f"{run.name} ({len(run.passing['steps'])} steps)"
     try:
         url = asyncio.run_coroutine_threadsafe(_open_visualizer(run.passing, name), VIS_LOOP).result(timeout=30)
     except Exception as e:
@@ -318,7 +410,7 @@ def execute_page():
 def list_healed():
     items = []
     for path in sorted(HEALED.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
-        if path.stem.endswith("_heal_log"):
+        if path.stem.endswith(("_heal_log", "_report")):
             continue
         p = json.loads(path.read_text())
         items.append({"name": path.stem, "protocol_name": p.get("protocol_name", path.stem),
@@ -331,14 +423,14 @@ def healed_setup(name: str):
     path = _healed_path(name)
     protocol = json.loads(path.read_text())
     deck_config = deck_config_for(protocol, ROOT)
+    setup, gate = setup_checklist(protocol, deck_config), _gate(protocol, path.stem)
     return jsonify({
         "name": path.stem,
         "protocol": protocol,
-        "gate": _gate(protocol, path.stem),
-        "setup": setup_checklist(protocol, deck_config),
+        "gate": gate,
+        "setup": setup,
         "script": str((HEALED / f"{path.stem}_plr.py").relative_to(ROOT)),
         "deck_file": protocol.get("deck_config", DEFAULT_DECK),
-        "deck_kind": "reference" if is_reference(deck_config) else "instrument",
         "real_deck": _real_deck_view(protocol, deck_config),
         "instrument_layout": _instrument_layout_id(deck_config),
     })
@@ -381,9 +473,6 @@ def start_execution():
     if not gate["passed"]:
         return jsonify({"error": f"The protocol no longer passes the simulator: {gate['summary']}"}), 409
     deck_config = deck_config_for(protocol, ROOT)
-    if backend == "star" and is_reference(deck_config):
-        return jsonify({"error": f"This protocol was drafted for {protocol.get('deck_config', DEFAULT_DECK)}, the reference "
-                                 f"simulation deck, not the instrument's. Draft it again for {INSTRUMENT_DECK}."}), 409
     if backend == "star":
         required = {i["id"] for i in setup_checklist(protocol, deck_config)["items"]}
         missing = required - set(body.get("confirmed", []))
@@ -471,32 +560,30 @@ def _real_deck() -> Dict[str, Any]:
 
 def _real_deck_view(protocol: Dict[str, Any], deck_config: Dict[str, Any]) -> Dict[str, Any]:
     """The Execute page's deck drawing: the deck on the STARlet now, with the labware this protocol uses marked and
-    what its deck adds (labware, carriers) drawn as still to place. A protocol on the reference deck uses nothing
-    on the real one."""
+    what its deck adds (labware, carriers) drawn as still to place."""
     real = _real_deck()
-    view: Dict[str, Any] = {"file": INSTRUMENT_DECK, "reference": is_reference(deck_config), "warning": None}
+    view: Dict[str, Any] = {"file": INSTRUMENT_DECK, "warning": None}
     used, labels, added = set(), {}, set()
-    if not view["reference"]:
-        for lid in _used_labware(protocol):
-            spec = deck_config["labware"].get(lid)
-            if not spec or spec["kind"] == "trash":
-                continue
-            if spec.get("venus_id") in real["labware"]:
-                used.add(spec["venus_id"])
-                labels[spec["venus_id"]] = lid
-                continue
-            carrier = next((c for c in deck_config["carriers"] if c["name"] == spec.get("carrier")), None)
-            if carrier and carrier["name"] not in {c["name"] for c in real["carriers"]}:
-                real["carriers"].append(carrier)
-            real["labware"][lid] = spec
-            added.add(lid)
+    for lid in _used_labware(protocol):
+        spec = deck_config["labware"].get(lid)
+        if not spec or spec["kind"] == "trash":
+            continue
+        if spec.get("venus_id") in real["labware"]:
+            used.add(spec["venus_id"])
+            labels[spec["venus_id"]] = lid
+            continue
+        carrier = next((c for c in deck_config["carriers"] if c["name"] == spec.get("carrier")), None)
+        if carrier and carrier["name"] not in {c["name"] for c in real["carriers"]}:
+            real["carriers"].append(carrier)
+        real["labware"][lid] = spec
+        added.add(lid)
     try:
         view["drawing"] = deck_drawing(real, used, labels, added)
     except Exception as e:  # the .lay changed since the deck was built: the additions no longer fit
         view["warning"] = (f"This protocol's additions no longer fit the deck in {INSTRUMENT_DECK} "
                            f"({type(e).__name__}: {e}); draft it again.")
         view["drawing"] = deck_drawing(_real_deck(), set())
-    view["drawing"]["show_use"] = not view["reference"]
+    view["drawing"]["show_use"] = True
     return view
 
 
@@ -551,44 +638,6 @@ def get_layout(layout_id: str):
 
 
 
-# --- Benchmark results (read-only views of build/benchmark/<run>/runs.jsonl) ---
-
-def _benchmark_records(path: Path) -> List[Dict[str, Any]]:
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-
-
-@app.get("/benchmark")
-def benchmark_page():
-    return send_from_directory(app.static_folder, "benchmark.html")
-
-
-@app.get("/api/benchmarks")
-def list_benchmarks():
-    items = []
-    for path in sorted(BENCHMARKS.glob("*/runs.jsonl"), reverse=True):
-        records = _benchmark_records(path)
-        model_runs = [r for r in records if r.get("temperature") is not None]
-        items.append({
-            "id": path.parent.name,
-            "runs": len(records),
-            "scenes": len({r["scene"] for r in records}),
-            "conditions": sorted({r["condition"] for r in records}),
-            "temperature": model_runs[0]["temperature"] if model_runs else None,
-            "repeats": len({r.get("repeat", 0) for r in model_runs}) or 1,
-        })
-    return jsonify(items)
-
-
-@app.get("/api/benchmarks/<bench_id>")
-def get_benchmark(bench_id: str):
-    path = BENCHMARKS / Path(bench_id).name / "runs.jsonl"
-    if not path.is_file():
-        abort(404)
-    return jsonify(_benchmark_records(path))
-
-
-# --- Library: the static data the pipeline relies on ---
-
 @app.get("/library")
 def library_page():
     return send_from_directory(app.static_folder, "library.html")
@@ -596,18 +645,12 @@ def library_page():
 
 @app.get("/api/library")
 def library():
-    """The labware inventory, every deck layout (and which protocols use it), and the diagnostics
-    knowledge base, read fresh so recorded runs show up on reload."""
-    used_by: Dict[str, List[str]] = {}
-    for path in sorted(PROTOCOLS.glob("*")):
-        if path.suffix in (".json", ".yaml", ".yml"):
-            deck = Path(yaml.safe_load(path.read_text()).get("deck_config", DEFAULT_DECK)).name
-            used_by.setdefault(deck, []).append(path.name)
-    decks = [{"file": path.name, **json.loads(path.read_text()), "used_by": used_by.get(path.name, [])}
-             for path in sorted((CONFIG / "reference").glob("plr_deck*.json"))]
+    """Ground truth only: VENUS's labware library and the deck on the STARlet (pipeline/library_view.py), the
+    protocols drafted for that deck, and the diagnostics knowledge base, read fresh so recorded runs show up."""
     return jsonify({
-        "inventory": json.loads((CONFIG / "reference" / "labware.json").read_text()),
-        "decks": decks,
+        "inventory": library_view.inventory(ROOT),
+        "decks": [{**library_view.instrument_deck(ROOT),
+                   "used_by": library_view.used_by(sorted(PROTOCOLS.glob("*")) + sorted(HEALED.glob("*.json")), ROOT)}],
         "knowledge": json.loads(diagnostics.KNOWLEDGE_BASE.read_text()),
     })
 

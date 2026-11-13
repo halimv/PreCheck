@@ -1,0 +1,137 @@
+{
+  "deck_config": "decks/serial_1_10_dilution_of_culture_in_0_9_saline_20261112-201817_r2.json",
+  "labware": {
+    "tips": {
+      "need": {
+        "kind": "tip_rack",
+        "tip_volume_ul": 300,
+        "filter": true,
+        "description": "300 \u00b5L filter tips for diluent, culture, mixing and transfers (on deck)"
+      },
+      "action": "on_deck",
+      "on_deck_as": "STF_L_0001",
+      "venus_type": "STF_L",
+      "venus_file": "ML_STAR/STF_L.rck",
+      "description": "Rack with 96 300ul Standard Volume Tip with filter",
+      "barcode": "235903************",
+      "part_number": null,
+      "capacity_ul": null,
+      "tip_volume_ul": 300.0,
+      "carrier": {
+        "name": "TIP_CAR_480_A00_0001",
+        "venus_type": "TIP_CAR_480_A00",
+        "barcode": "T02*****",
+        "label": "TIP_CAR_480_A00",
+        "part_number": null,
+        "rails": 7,
+        "added": false
+      },
+      "position": {
+        "hamilton": 1,
+        "plr_site": 4
+      }
+    },
+    "diluent": {
+      "need": {
+        "kind": "reservoir",
+        "min_capacity_ul": 6000,
+        "description": "0.9% normal saline trough, 4320 \u00b5L needed for 6 columns x 90 \u00b5L x 8 channels plus dead volume"
+      },
+      "action": "add_carrier",
+      "on_deck_as": null,
+      "venus_type": "RGT_CONT_50ml_A00",
+      "venus_file": "ML_STAR/Reagent/RGT_CONT_50ml_A00.rck",
+      "description": "",
+      "barcode": null,
+      "part_number": null,
+      "capacity_ul": 63000.0,
+      "tip_volume_ul": null,
+      "carrier": {
+        "name": "RGT_CAR_5R60_A00_13",
+        "venus_type": "RGT_CAR_5R60_A00",
+        "barcode": "R13*****",
+        "label": "RGT_CAR_5R60_A00",
+        "part_number": null,
+        "rails": 13,
+        "added": true
+      },
+      "position": {
+        "hamilton": 1,
+        "plr_site": 4
+      }
+    },
+    "culture": {
+      "need": {
+        "kind": "reservoir",
+        "min_capacity_ul": 500,
+        "description": "Optimum-growth culture trough, 80 \u00b5L needed for column 1"
+      },
+      "action": "add_carrier",
+      "on_deck_as": null,
+      "venus_type": "RGT_CONT_50ml_A00",
+      "venus_file": "ML_STAR/Reagent/RGT_CONT_50ml_A00.rck",
+      "description": "",
+      "barcode": null,
+      "part_number": null,
+      "capacity_ul": 63000.0,
+      "tip_volume_ul": null,
+      "carrier": {
+        "name": "RGT_CAR_5R60_A00_13",
+        "venus_type": "RGT_CAR_5R60_A00",
+        "barcode": "R13*****",
+        "label": "RGT_CAR_5R60_A00",
+        "part_number": null,
+        "rails": 13,
+        "added": true
+      },
+      "position": {
+        "hamilton": 2,
+        "plr_site": 3
+      }
+    },
+    "dilution_plate": {
+      "need": {
+        "kind": "plate",
+        "wells": 96,
+        "min_capacity_ul": 150,
+        "description": "96-well PCR plate (Cos_96_PCR, on deck); columns 1-6 hold the 10^-1 to 10^-6 dilutions"
+      },
+      "action": "on_deck",
+      "on_deck_as": "Cos_96_PCR_0002",
+      "venus_type": "Cos_96_PCR",
+      "venus_file": "CORNING-COSTAR/Cos_96_PCR.rck",
+      "description": "",
+      "barcode": null,
+      "part_number": null,
+      "capacity_ul": 289.7,
+      "tip_volume_ul": null,
+      "carrier": {
+        "name": "PLT_CAR_L5_DWP_0001",
+        "venus_type": "PLT_CAR_L5_DWP",
+        "barcode": "SR11****",
+        "label": "PLT_CAR_L5_DWP",
+        "part_number": "93522",
+        "rails": 1,
+        "added": false
+      },
+      "position": {
+        "hamilton": 4,
+        "plr_site": 1
+      }
+    },
+    "waste": {
+      "need": {
+        "kind": "waste",
+        "description": "Tips and discarded liquid"
+      },
+      "action": "on_deck",
+      "venus_type": null,
+      "description": "the deck's tip waste",
+      "barcode": null
+    }
+  },
+  "operator_changes": [
+    "diluent: add carrier: RGT_CONT_50ml_A00 at RGT_CAR_5R60_A00_13 (rail 13) position 1",
+    "culture: add carrier: RGT_CONT_50ml_A00 at RGT_CAR_5R60_A00_13 (rail 13) position 2"
+  ]
+}

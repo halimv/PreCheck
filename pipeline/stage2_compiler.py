@@ -35,7 +35,13 @@ def _spots(labware: str, column: int, channels: List[int]) -> str:
     return "[" + ", ".join(f'res["{labware}"].get_item("{ROWS[ch]}{column}")' for ch in channels) + "]"
 
 
-def translate_step(step: Dict[str, Any], kinds: Dict[str, str]) -> str:
+def venus_troughs(deck_config: Dict[str, Any]) -> frozenset:
+    """Containers built from VENUS's definition: they know where VENUS sends each channel (pipeline.deck.reach)."""
+    return frozenset(lid for lid, spec in deck_config["labware"].items()
+                     if spec.get("kind") == "container" and spec.get("build") == "venus")
+
+
+def translate_step(step: Dict[str, Any], kinds: Dict[str, str], troughs: frozenset = frozenset()) -> str:
     n, action, labware = step.get("step"), step.get("action"), step.get("labware")
     channels = step.get("channels", [0])
 
@@ -71,7 +77,8 @@ def translate_step(step: Dict[str, Any], kinds: Dict[str, str]) -> str:
         targets = f'[res["{labware}"]] * {len(channels)}'
     else:
         raise CompilationError(f"Step {n}: cannot {action} on a {kind} ('{labware}').")
-    return f"await lh.{action}({targets}, vols={vols}, use_channels={channels})"
+    where = f', **reach(res["{labware}"], {channels})' if labware in troughs else ""  # VENUS's channel positions
+    return f"await lh.{action}({targets}, vols={vols}, use_channels={channels}{where})"
 
 
 def _number(step: Dict[str, Any], key: str, minimum: float = 0) -> float:
@@ -125,11 +132,14 @@ def compile_protocol(protocol: Dict[str, Any], deck_config: Dict[str, Any]) -> s
     ]
     if any(s.get("action") in DEVICE_ACTIONS for s in protocol.get("steps", [])):
         lines.append("from pipeline.deck import heater_shaker")
+    troughs = venus_troughs(deck_config)
+    if any(s.get("labware") in troughs and s.get("action") in ("aspirate", "dispense") for s in protocol.get("steps", [])):
+        lines.append("from pipeline.deck import reach")
     lines += ["", "async def run_protocol(lh, res):"]
     for step in protocol.get("steps", []):
         desc = step.get("description") or f"{step.get('action')} {step.get('labware', '')}".strip()
         lines.append(f"    # step {step.get('step')}: {desc}")
-        lines.extend("    " + line for line in translate_step(step, kinds).splitlines())
+        lines.extend("    " + line for line in translate_step(step, kinds, troughs).splitlines())
     return "\n".join(lines) + "\n"
 
 
@@ -152,11 +162,13 @@ async def _main(backend_name):
     from pylabrobot.legacy.liquid_handling.backends import LiquidHandlerChatterboxBackend, STARBackend
     from pylabrobot.resources import set_tip_tracking, set_volume_tracking
     from pipeline.deck import build_deck, load_deck_config, machines
+    from pipeline.instrument import simulation_backend
 
     set_tip_tracking(True)
     set_volume_tracking(True)
-    deck, res = build_deck(load_deck_config(str(Path(__file__).resolve().parents[1] / DECK_CONFIG)), INITIAL_VOLUMES_UL)
-    backend = STARBackend() if backend_name == "star" else LiquidHandlerChatterboxBackend(num_channels=8)
+    deck_config = load_deck_config(str(Path(__file__).resolve().parents[1] / DECK_CONFIG))
+    deck, res = build_deck(deck_config, INITIAL_VOLUMES_UL)
+    backend = STARBackend() if backend_name == "star" else simulation_backend(deck_config)
     lh = LiquidHandler(backend=backend, deck=deck)
     await lh.setup()
     for machine in machines(res):

@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from pipeline.deck import ROOT, build_deck, make_resource
 from pipeline.instrument import load_instrument
 from pipeline.setup_guide import nominal_tip_ul
-from pipeline.venus_labware import (LIBRARY, VenusLabwareError, carrier_sites, container_capacity, container_offset,
+from pipeline.venus_labware import (LIBRARY, VenusLabwareError, carrier_sites, access_positions, container_capacity, container_offset, rack_capacity,
                                     find, read_cfg)
 from pipeline.venus_layout import RAIL_MM, load_venus_map
 
@@ -159,7 +159,7 @@ def _catalog(root: str) -> Tuple[Dict[str, Any], ...]:
         else:
             try:
                 ctr = read_cfg(find(pairs["Cntr.1.file"], base))
-                capacity = container_capacity(ctr)
+                capacity = rack_capacity(pairs, ctr) if kind == "reservoir" else container_capacity(ctr)
                 rows, columns = int(pairs.get("Rows", 1)), int(pairs.get("Columns", 1))
             except (KeyError, ValueError, VenusLabwareError, OSError):
                 continue
@@ -174,6 +174,7 @@ def _catalog(root: str) -> Tuple[Dict[str, Any], ...]:
                          build=mapped[1]["build"] if mapped else "venus")
             if kind == "reservoir":
                 entry["offset_mm"] = [round(v, 3) for v in container_offset(pairs, ctr)]
+                entry["channels_at_once"] = len(access_positions(pairs)) or 1  # a trough's positions, one per channel
             if kind == "tube_rack":
                 entry["tracks"] = _tracks(pairs)
                 entry["positions"] = rows * columns
@@ -212,7 +213,8 @@ def fits(need: Dict[str, Any], entry: Dict[str, Any]) -> bool:
 
 def _rank(entry: Dict[str, Any]) -> Tuple:
     size = entry.get("tip_volume_ul", entry.get("capacity_ul", 0))
-    return (not entry["checked"], size, entry["venus_type"])
+    # A reservoir all 8 channels enter at once comes before one they must take turns in.
+    return (not entry["checked"], -min(entry.get("channels_at_once", 1), 8), size, entry["venus_type"])
 
 
 def closest(need: Dict[str, Any], entries: List[Dict[str, Any]], n: int = 5) -> List[str]:

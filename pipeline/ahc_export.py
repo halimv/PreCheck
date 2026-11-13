@@ -6,9 +6,11 @@ PyLabRobot labware type, plus the liquids loaded before the run. A task folder k
 the deck before anything moves. Exporting from here gives AHC the same deck Precheck simulated, or the deck
 the instrument library's VENUS layout says is on the STARlet (`--instrument`).
 
-AHC accepts only the types in config/ahc_starlet.json, matched ignoring case (PyLabRobot 1.0 and 0.2.2
-spell some names differently). Anything else is reported and left out, never renamed to a near match, and
-a layout with anything left out is written only with `--partial`.
+AHC accepts only the types its own device description lists. That list is read from the installed AHC plugin
+(INSTALLED_AHC), so Precheck and AHC cannot disagree about it; config/ahc_starlet.json is the copy used when AHC
+is not installed. VENUS labware that AHC models under another name goes across by the `equivalents` declared in
+that file, with what differs written into the layout. Anything with neither is reported and left out, and a
+layout with anything left out is written only with `--partial`.
 
     python -m pipeline.ahc_export --protocol healed/<name>.json --out <task>/.ahc/layouts/<name>.yaml
     python -m pipeline.ahc_export --instrument --out <task>/.ahc/layouts/starlet_now.yaml --partial
@@ -21,6 +23,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import pylabrobot.resources as plr
 import yaml
 
 from pipeline.deck import deck_config_for, load_deck_config
@@ -31,12 +34,33 @@ ROOT = Path(__file__).resolve().parent.parent
 AHC_TYPES = "config/ahc_starlet.json"
 
 
-def load_ahc_types(root: Path = ROOT) -> Dict[str, Any]:
-    return json.loads((root / AHC_TYPES).read_text())
+INSTALLED_AHC = ("marketplaces/*/src/ahc/devices/hamilton/starlet.md", "cache/*/ahc/*/src/ahc/devices/hamilton/starlet.md")
 
 
-def _ahc_name(name: str, accepted: List[str]) -> Optional[str]:
-    return next((a for a in accepted if a.lower() == name.lower()), None)
+def installed_ahc_types(plugins: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+    """The layout types the installed AHC plugin's STARlet description lists, or None when AHC is not installed."""
+    plugins = plugins or Path.home() / ".claude" / "plugins"
+    for pattern in INSTALLED_AHC:
+        for path in sorted(plugins.glob(pattern), reverse=True):
+            try:
+                layout = yaml.safe_load(path.read_text().split("---")[1])["layout"]
+                labware = layout["labware"]
+                return {"tracks": layout["tracks"], "carriers": list(layout["carriers"]), "source": str(path),
+                        "labware": [t for group in labware.values() for t in group] if isinstance(labware, dict) else list(labware)}
+            except (OSError, IndexError, KeyError, TypeError, yaml.YAMLError):
+                continue
+    return None
+
+
+def load_ahc_types(root: Path = ROOT, plugins: Optional[Path] = None) -> Dict[str, Any]:
+    """What AHC accepts: the installed AHC's own list, else the copy in config/ahc_starlet.json. The declared
+    VENUS equivalents always come from the config file."""
+    copy = json.loads((root / AHC_TYPES).read_text())
+    return {**copy, "source": AHC_TYPES, **(installed_ahc_types(plugins) or {})}
+
+
+def _ahc_name(name: Optional[str], accepted: List[str]) -> Optional[str]:
+    return next((a for a in accepted if name and a.lower() == name.lower()), None)
 
 
 def to_ahc_layout(deck_config: Dict[str, Any], ahc: Dict[str, Any], initial_volumes_ul: Optional[Dict[str, float]] = None
@@ -48,7 +72,7 @@ def to_ahc_layout(deck_config: Dict[str, Any], ahc: Dict[str, Any], initial_volu
     warnings: List[str] = []
 
     def venus_note(spec: Dict[str, Any], what: str) -> None:
-        if spec.get("build") == "venus":
+        if spec.get("build") == "venus" and hasattr(plr, spec.get("factory") or ""):
             from pipeline.venus_labware import compare
             diffs = compare(spec["factory"], spec["venus"])
             if diffs:
@@ -69,10 +93,15 @@ def to_ahc_layout(deck_config: Dict[str, Any], ahc: Dict[str, Any], initial_volu
             if ls.get("carrier") != spec["name"]:
                 continue
             labware = _ahc_name(ls["factory"], ahc["labware"])
-            if labware is None:
-                problems.append(f"{lid} ({ls['factory']}) on {spec['name']} is not labware AHC accepts")
+            same = ahc.get("equivalents", {}).get(ls.get("venus_type"))
+            if labware is None and same and _ahc_name(same["type"], ahc["labware"]):
+                labware = _ahc_name(same["type"], ahc["labware"])
+                warnings.append(f"{lid}: VENUS's {ls['venus_type']} goes to AHC as {labware} ({same['note']})")
+            elif labware is None:
+                problems.append(f"{lid} ({ls.get('venus_type') or ls['factory']}) on {spec['name']} is not labware AHC accepts")
                 continue
-            venus_note(ls, lid)
+            else:
+                venus_note(ls, lid)
             sites[str(ls["slot"])] = {"name": lid, "type": labware}
         carriers.append({"name": spec["name"], "type": kind, "track": spec["rails"], "sites": sites})
     for lid, ls in deck_config["labware"].items():
@@ -99,7 +128,7 @@ def write_layout(layout: Dict[str, Any], path: Path, source: str, problems: List
         lines.append("# NOT ON THIS LAYOUT (AHC would not know these are on the deck):")
         lines += [f"#   - {p}" for p in problems]
     if warnings:
-        lines.append("# GEOMETRY DIFFERS FROM VENUS (AHC uses PyLabRobot's definition):")
+        lines.append("# AHC'S MODEL DIFFERS FROM VENUS HERE (AHC uses PyLabRobot's definition):")
         lines += [f"#   - {w}" for w in warnings]
     lines.append("# Load it with load_layout(name=...); the deck check confirms it before anything moves.")
     path.parent.mkdir(parents=True, exist_ok=True)

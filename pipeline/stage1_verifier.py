@@ -23,7 +23,7 @@ class Verifier:
 
     Enforces:
     - Volume limits: per-plate min/max (pipeline/labware_limits.py: the deck's geometry and
-      config/precheck_policy.json; a reference deck's fixed limits file), each plate tracked on its own
+      config/precheck_policy.json), each plate tracked on its own
     - Tip management: 96-tip rack, 8-channel head, per-rack per-channel tracking
     - Contamination prevention: Smart tracking of source wells per channel
       * Tips can be reused for same source well (serial dilution pattern)

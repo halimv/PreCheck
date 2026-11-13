@@ -10,9 +10,9 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <h1>Self-healing protocol demo</h1>
-        <p>Hamilton STARlet · PyLabRobot · local model</p>
-        <nav class="nav"><a href="/">Live run</a><a href="/benchmark">Benchmark results</a><a href="/library">Library</a><a class="active" href="/execute">Execute</a></nav>
+        <h1>PreCheck</h1>
+        <p>Hamilton STARlet · PyLabRobot</p>
+        <nav class="nav"><a href="/">Check</a><a href="/library">Library</a><a class="active" href="/execute">Execute</a></nav>
       </div>
 
       <section class="panel">
@@ -32,9 +32,9 @@
 
       <section class="panel">
         <label class="field">
-          <span>Venus deck layout (optional)</span>
+          <span>VENUS deck layout <button type="button" class="info" data-tip="Optional. The protocol is checked against the instrument's own .lay in config/instrument/. Load another .lay to check against that instead." aria-label="Optional. The protocol is checked against the instrument's own .lay in config/instrument/. Load another .lay to check against that instead.">i</button></span>
           <input type="file" id="lay-file" accept=".lay">
-          <small id="lay-note" class="hint">The protocol is checked against the instrument library's .lay (config/instrument/). Load another .lay to check against it instead.</small>
+          <small id="lay-note" class="hint"></small>
         </label>
       </section>
 
@@ -52,10 +52,10 @@
         <h2>Run</h2>
         <fieldset class="field">
           <legend>Backend</legend>
-          <label class="radio"><input type="radio" name="backend" value="local:chatterbox" checked> ChatterBox rehearsal on this computer</label>
-          <label class="radio pi-option"><input type="radio" name="backend" value="pi:chatterbox"> ChatterBox rehearsal on the Pi (checks the Pi's setup)</label>
-          <label class="radio pi-option"><input type="radio" name="backend" value="pi:star"> Hamilton STARlet via the Pi</label>
-          <label class="radio"><input type="radio" name="backend" value="local:star"> Hamilton STARlet on this computer's USB</label>
+          <label class="radio"><input type="radio" name="backend" value="local:chatterbox" checked> Rehearsal here <button type="button" class="info" data-tip="A dry run on this computer, on the STAR model of the instrument. Nothing is sent to the robot." aria-label="A dry run on this computer, on the STAR model of the instrument. Nothing is sent to the robot.">i</button></label>
+          <label class="radio pi-option"><input type="radio" name="backend" value="pi:chatterbox"> Rehearsal on the Pi <button type="button" class="info" data-tip="The same dry run on the Pi the STARlet is plugged into. It checks the Pi's setup; nothing is sent to the robot." aria-label="The same dry run on the Pi the STARlet is plugged into. It checks the Pi's setup; nothing is sent to the robot.">i</button></label>
+          <label class="radio pi-option"><input type="radio" name="backend" value="pi:star"> STARlet via the Pi <button type="button" class="info" data-tip="Runs on the real instrument, through the Pi its USB cable is plugged into." aria-label="Runs on the real instrument, through the Pi its USB cable is plugged into.">i</button></label>
+          <label class="radio"><input type="radio" name="backend" value="local:star"> STARlet on USB <button type="button" class="info" data-tip="Runs on the real instrument, plugged into this computer's USB." aria-label="Runs on the real instrument, plugged into this computer's USB.">i</button></label>
         </fieldset>
         <div id="pi-panel" class="field" hidden>
           <small id="pi-status" class="hint">Checking the Pi…</small>
@@ -66,12 +66,12 @@
         </div>
         <fieldset class="field">
           <legend>Mode</legend>
-          <label class="radio"><input type="radio" name="mode" value="tip_check" checked> Tip check: pick up and return one column per rack</label>
+          <label class="radio"><input type="radio" name="mode" value="tip_check" checked> Tip check <button type="button" class="info" data-tip="Picks up and returns one column of tips per rack: a quick check that the deck is where the protocol expects, with no liquid moved." aria-label="Picks up and returns one column of tips per rack: a quick check that the deck is where the protocol expects, with no liquid moved.">i</button></label>
           <label class="radio"><input type="radio" name="mode" value="full"> Full protocol</label>
         </fieldset>
         <small id="run-note" class="note"></small>
         <button id="start" type="submit" class="primary" disabled>Start</button>
-        <button id="abort" type="button" class="danger" hidden>Abort after current step</button>
+        <button id="abort" type="button" class="danger" hidden data-tip="The step in progress finishes, then the run stops.">Abort</button>
       </form>
     </aside>
 
@@ -83,7 +83,7 @@
       </div>
 
       <section class="card exec-section" id="deck-card" hidden>
-        <header><h3>Deck on the STARlet now</h3><span class="meta">From config/instrument/ahc_deck.lay (VENUS), seen from the front.</span></header>
+        <header><h3>Deck on the STARlet now <button type="button" class="info" data-tip="Read from config/instrument/ahc_deck.lay (VENUS), drawn as seen from the front." aria-label="Read from config/instrument/ahc_deck.lay (VENUS), drawn as seen from the front.">i</button></h3></header>
         <div class="block">
           <div id="deck-svg" class="deck-svg"></div>
           <p class="deck-legend muted"><span class="swatch used"></span> used by this protocol
@@ -91,7 +91,7 @@
             <span class="swatch current"></span> current setup item</p>
           <p id="deck-note-real" class="note"></p>
           <div class="actions">
-            <button id="open-deck" type="button">Open the deck on the STARlet in PyLabRobot's visualizer</button>
+            <button id="open-deck" type="button" data-tip="Opens the deck that is on the STARlet now in PyLabRobot's 3D viewer.">View deck in 3D</button>
             <span id="deck-note" class="hint"></span>
           </div>
         </div>

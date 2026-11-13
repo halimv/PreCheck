@@ -7,8 +7,7 @@ deck from the same file. Starting reagent volumes come from the protocol IR
 The deck is ground truth from VENUS: a `deck_config` that is a .lay (INSTRUMENT_DECK, the deck on the
 STARlet) is read directly, with every carrier and labware built as config/venus_labware.json says
 (PyLabRobot's factory where it matches VENUS, else VENUS's own definition in config/Labware). Labware
-IDs are the VENUS IDs. JSON deck configs remain for the reference simulation deck in config/reference/,
-which protocols written before the real deck was known (no `deck_config` field) still use.
+IDs are the VENUS IDs.
 
 A deck config may also list `machines` (heater-shakers). Labware with `"on": "<machine id>"`
 sits on that machine instead of a carrier slot, so incubate and shake steps can reach it.
@@ -27,8 +26,7 @@ from pylabrobot.resources import Coordinate
 AMBIENT_C = 22.0
 ROOT = Path(__file__).resolve().parent.parent
 INSTRUMENT_DECK = "config/instrument/ahc_deck.lay"  # the deck on the STARlet (VENUS); new protocols are drafted on it
-REFERENCE_DECK = "config/reference/plr_deck.json"  # the hand-written simulation deck of the benchmark and tests
-DEFAULT_DECK = REFERENCE_DECK  # for protocols that name no deck: they all predate the real deck
+DEFAULT_DECK = INSTRUMENT_DECK  # for protocols that name no deck: the deck on the STARlet
 
 
 class DeckError(ValueError):
@@ -83,6 +81,16 @@ def heater_shaker(res: Dict[str, Any], labware: str) -> HeaterShaker:
     return holder
 
 
+def reach(resource: Any, channels: List[int]) -> Dict[str, Any]:
+    """Extra arguments for an aspirate or dispense of `channels` in one container (compiled steps call this).
+    A trough built from VENUS says where each channel goes in (venus_labware.make_container): those positions
+    are used, as VENUS would. Anything else gets none, and PyLabRobot spreads the channels itself."""
+    ys = getattr(resource, "venus_access_y", None)
+    if not ys or max(channels) >= len(ys):
+        return {}
+    return {"spread": "custom", "offsets": [Coordinate(0, ys[ch], 0) for ch in channels]}
+
+
 def machines(res: Dict[str, Any]) -> List[Machine]:
     """The machines on a built deck, which need setup() before a run and stop() after."""
     return [r for r in res.values() if isinstance(r, Machine)]
@@ -97,21 +105,22 @@ def load_deck_config(path: str) -> Dict[str, Any]:
 
 
 def deck_config_from_venus(path: str, root: Path = ROOT) -> Dict[str, Any]:
-    """The deck a VENUS layout describes. Refused if anything on it cannot be built: a deck missing an item
-    would not know it is there."""
+    """The deck a VENUS layout describes. Refused if anything on it cannot be built (a deck missing an item
+    would not know it is there) or if PyLabRobot would put anything somewhere VENUS does not: every position
+    and height is checked against the layout and VENUS's labware definitions before the deck is used."""
     from pipeline.instrument import DEFAULT_INSTRUMENT
-    from pipeline.venus_layout import deck_config_from_lay, load_venus_map, read_lay
+    from pipeline.venus_layout import deck_config_from_lay, load_venus_map, position_checks, read_lay
 
     lay = Path(path)
-    config, problems = deck_config_from_lay(read_lay(lay.read_bytes()), load_venus_map(root), lay.name)
+    pairs = read_lay(lay.read_bytes())
+    config, problems = deck_config_from_lay(pairs, load_venus_map(root), lay.name)
     if problems:
         raise DeckError(f"{lay.name} cannot be built: " + "; ".join(f"{p['id']}: {p['problem']}" for p in problems))
+    off = [c for c in position_checks(pairs, config) if not c["ok"]]
+    if off:
+        raise DeckError(f"PyLabRobot's deck for {lay.name} differs from VENUS: " + "; ".join(
+            f"{c['id']} {c['what']}: PyLabRobot {c['plr']}, VENUS {c['lay']} mm" for c in off))
     return {**config, "instrument": DEFAULT_INSTRUMENT}
-
-
-def is_reference(deck_config: Dict[str, Any]) -> bool:
-    """A hand-written simulation deck, not the instrument's: never for a run on the robot."""
-    return bool(deck_config.get("reference"))
 
 
 def deck_config_for(protocol: Dict[str, Any], root: Path) -> Dict[str, Any]:

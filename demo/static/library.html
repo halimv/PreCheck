@@ -10,9 +10,9 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <h1>Self-healing protocol demo</h1>
-        <p>Hamilton STARlet · PyLabRobot · local model</p>
-        <nav class="nav"><a href="/">Live run</a><a href="/benchmark">Benchmark results</a><a class="active" href="/library">Library</a><a href="/execute">Execute</a></nav>
+        <h1>PreCheck</h1>
+        <p>Hamilton STARlet · PyLabRobot</p>
+        <nav class="nav"><a href="/">Check</a><a class="active" href="/library">Library</a><a href="/execute">Execute</a></nav>
       </div>
 
       <div class="panel">
@@ -29,11 +29,9 @@
 
       <section class="panel legend" id="side-labware">
         <h2>Where this comes from</h2>
-        <p>The real deck is VENUS ground truth: <code>config/instrument/ahc_deck.lay</code> built from VENUS's labware
-          library (<code>config/Labware</code>, typed by <code>config/venus_labware.json</code>), with plate limits from
-          its geometry and <code>config/precheck_policy.json</code>.</p>
-        <p>Shown here is the <strong>reference simulation deck</strong> (<code>config/reference/</code>): the
-          hand-written labware and decks the benchmark and the tests use. It is not the lab's; nothing runs on it on the robot.</p>
+        <p>Everything on this page is VENUS ground truth: the labware is VENUS's library (<code>config/Labware</code>),
+          and the deck is the layout of the STARlet now (<code>config/instrument/ahc_deck.lay</code>). Plate capacities
+          come from VENUS's volume equations; the dead volume and fill limits are <code>config/precheck_policy.json</code>.</p>
         <p>Read-only here; edit the files and reload.</p>
       </section>
 

@@ -1,0 +1,110 @@
+{
+  "description": "Deck for Serial 1:10 dilution of culture in 0.9% saline, built by pipeline/deck_builder.py on ahc_deck.lay from VENUS's labware library. Labware IDs are the protocol's IR names; labware the protocol does not use keeps its VENUS ID. Carriers marked `added` are not on the deck yet.",
+  "deck": "STARLetDeck",
+  "instrument": "config/instrument/starlet_F553.json",
+  "source": {
+    "venus_layout": "ahc_deck.lay",
+    "venus_deck": "ML_Starlet.dck"
+  },
+  "carriers": [
+    {
+      "name": "PLT_CAR_L5_DWP_0001",
+      "factory": "PLT_CAR_L5_DWP",
+      "venus": "ML_STAR/PLT_CAR_L5_DWP.tml",
+      "build": "venus",
+      "venus_type": "PLT_CAR_L5_DWP",
+      "rails": 1
+    },
+    {
+      "name": "TIP_CAR_480_A00_0001",
+      "factory": "TIP_CAR_480_A00",
+      "venus_type": "TIP_CAR_480_A00",
+      "rails": 7
+    },
+    {
+      "name": "RGT_CAR_5R60_A00_13",
+      "factory": "RGT_CAR_5R60_A00",
+      "rails": 13,
+      "venus_type": "RGT_CAR_5R60_A00",
+      "added": true,
+      "venus": "ML_STAR/Reagent/RGT_CAR_5R60_A00.tml",
+      "build": "venus",
+      "role": "carrier"
+    }
+  ],
+  "labware": {
+    "tips": {
+      "factory": "hamilton_96_tiprack_300uL_filter",
+      "venus_type": "STF_L",
+      "carrier": "TIP_CAR_480_A00_0001",
+      "slot": 4,
+      "kind": "tip_rack",
+      "venus_position": 1,
+      "venus_id": "STF_L_0001"
+    },
+    "STF_L_0002": {
+      "factory": "hamilton_96_tiprack_300uL_filter",
+      "venus_type": "STF_L",
+      "carrier": "TIP_CAR_480_A00_0001",
+      "slot": 3,
+      "kind": "tip_rack",
+      "venus_position": 2
+    },
+    "dilution_plate": {
+      "factory": "Cos_96_PCR",
+      "venus": "CORNING-COSTAR/Cos_96_PCR.rck",
+      "build": "venus",
+      "venus_type": "Cos_96_PCR",
+      "carrier": "PLT_CAR_L5_DWP_0001",
+      "slot": 1,
+      "kind": "plate",
+      "venus_position": 4,
+      "venus_id": "Cos_96_PCR_0002"
+    },
+    "Cos_96_PCR_0001": {
+      "factory": "Cos_96_PCR",
+      "venus": "CORNING-COSTAR/Cos_96_PCR.rck",
+      "build": "venus",
+      "venus_type": "Cos_96_PCR",
+      "carrier": "PLT_CAR_L5_DWP_0001",
+      "slot": 2,
+      "kind": "plate",
+      "venus_position": 3
+    },
+    "waste": {
+      "kind": "trash",
+      "note": "The deck's built-in trash area.",
+      "venus_id": "waste"
+    },
+    "diluent": {
+      "factory": "RGT_CONT_50ml_A00",
+      "kind": "container",
+      "carrier": "RGT_CAR_5R60_A00_13",
+      "slot": 4,
+      "venus_type": "RGT_CONT_50ml_A00",
+      "venus": "ML_STAR/Reagent/RGT_CONT_50ml_A00.rck",
+      "build": "venus",
+      "role": "container",
+      "offset_mm": [
+        1.25,
+        6.25,
+        0.0
+      ]
+    },
+    "culture": {
+      "factory": "RGT_CONT_50ml_A00",
+      "kind": "container",
+      "carrier": "RGT_CAR_5R60_A00_13",
+      "slot": 3,
+      "venus_type": "RGT_CONT_50ml_A00",
+      "venus": "ML_STAR/Reagent/RGT_CONT_50ml_A00.rck",
+      "build": "venus",
+      "role": "container",
+      "offset_mm": [
+        1.25,
+        6.25,
+        0.0
+      ]
+    }
+  }
+}

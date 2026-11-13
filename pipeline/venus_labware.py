@@ -218,21 +218,57 @@ def _container_cfg(rck: Dict[str, str], root: Path) -> Dict[str, str]:
     return read_cfg(find(rck["Cntr.1.file"], root))
 
 
+def access_positions(rck: Dict[str, str]) -> List[Tuple[float, float]]:
+    """Where the channels go into a rack whose positions share one liquid (a trough: VENUS's ConnectedCtr), as
+    (x, y) offsets in mm from position 1, in VENUS's order: position 1 is the rear-most, the one channel 1 uses.
+    Empty for anything else."""
+    if rck.get("ConnectedCtr") != "1":
+        return []
+    out, n = [], 1
+    while f"{n}.ID" in rck and f"{n}.Y" in rck:
+        out.append((float(rck.get(f"{n}.X", 0)), float(rck[f"{n}.Y"])))
+        n += 1
+    return out if len(out) > 1 else []
+
+
 def container_offset(rck: Dict[str, str], ctr: Dict[str, str]) -> Tuple[float, float, float]:
     """Where a single-container rack's container sits in it (its front-left-bottom corner), for a trough placed in
-    a carrier site."""
-    return (_f(rck, "BndryX") - _f(ctr, "Dim.Dx") / 2, _f(rck, "BndryY") - _f(ctr, "Dim.Dy") / 2, _f(rck, "Cntr.1.base"))
+    a carrier site. A trough with several access positions is one container spanning them all."""
+    positions = access_positions(rck) or [(0.0, 0.0)]
+    return (_f(rck, "BndryX") + min(x for x, _ in positions) - _f(ctr, "Dim.Dx") / 2,
+            _f(rck, "BndryY") + min(y for _, y in positions) - _f(ctr, "Dim.Dy") / 2, _f(rck, "Cntr.1.base"))
+
+
+def rack_capacity(rck: Dict[str, str], ctr: Dict[str, str]) -> float:
+    """What a single-container rack holds: its container, times the access positions that share the liquid."""
+    return container_capacity(ctr) * (len(access_positions(rck)) or 1)
 
 
 def make_container(path: Path, name: str, root: Path = ROOT) -> Container:
-    """The rack's container (a trough's, or one tube of a tube rack) with VENUS's size and volume equations."""
-    ctr = _container_cfg(read_cfg(path), root)
-    volume, height = volume_functions(ctr)
+    """The rack's container (a trough's, or one tube of a tube rack) with VENUS's size and volume equations.
+
+    VENUS draws a trough as several access positions, one per channel, that share one liquid (ConnectedCtr). It
+    is built as one container spanning them, holding all of their volume, and it keeps where VENUS sends each
+    channel (`venus_access_y`: mm from its centre, channel 1 first), which pipeline.deck.reach hands to
+    PyLabRobot. Built as the first position alone, a 90 mm trough would be 9 mm wide and take one channel."""
+    rck = read_cfg(path)
+    ctr = _container_cfg(rck, root)
+    positions = access_positions(rck)
+    n = len(positions) or 1
+    segments = [[lo, hi, f"({text})*{n}"] for lo, hi, text in _segments(ctr)] if n > 1 else _segments(ctr)
+    volume = SegmentVolume(segments)
+    height = SegmentHeight(volume)
     depth = _f(ctr, "Depth")
-    return Container(name=name, size_x=_f(ctr, "Dim.Dx"), size_y=_f(ctr, "Dim.Dy"), size_z=depth,
-                     material_z_thickness=_f(ctr, "BaseMM"), max_volume=volume(depth),
-                     compute_volume_from_height=volume, compute_height_from_volume=height,
-                     model=f"venus:{path.stem}")
+    xs, ys = [x for x, _ in positions] or [0.0], [y for _, y in positions] or [0.0]
+    container = Container(name=name, size_x=_f(ctr, "Dim.Dx") + max(xs) - min(xs),
+                          size_y=_f(ctr, "Dim.Dy") + max(ys) - min(ys), size_z=depth,
+                          material_z_thickness=_f(ctr, "BaseMM"), max_volume=volume(depth),
+                          compute_volume_from_height=volume, compute_height_from_volume=height,
+                          model=f"venus:{path.stem}")
+    if positions:
+        middle = (max(ys) + min(ys)) / 2
+        container.venus_access_y = [y - middle for y in ys]
+    return container
 
 
 def make_tube_carrier(path: Path, name: str, root: Path = ROOT) -> Carrier:

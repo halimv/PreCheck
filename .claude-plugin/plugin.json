@@ -1,0 +1,7 @@
+{
+  "name": "precheck",
+  "version": "0.1.0",
+  "description": "PreCheck: turn a protocol PDF or description into a liquid-handling protocol checked and repaired against the lab's Hamilton STARlet (its deck, labware and firmware configuration), ready to run or to hand to AHC",
+  "author": {"name": "LLNL Capstone"},
+  "keywords": ["lab-automation", "liquid-handling", "pylabrobot", "hamilton", "protocol"]
+}

@@ -11,7 +11,7 @@ import pylabrobot.resources as plr
 from pylabrobot.legacy.liquid_handling.backends import STARBackend
 
 from pipeline.ahc_export import load_ahc_types, to_ahc_layout
-from pipeline.deck import INSTRUMENT_DECK, REFERENCE_DECK, DeckError, build_deck, is_reference, load_deck_config
+from pipeline.deck import INSTRUMENT_DECK, DeckError, build_deck, load_deck_config
 from pipeline.labware_limits import labware_limits
 from pipeline.self_heal import SelfHealer
 from pipeline.setup_guide import _used_labware
@@ -103,7 +103,7 @@ def test_plr_alone_lowers_the_96_head_further_than_venus():
 
 
 def test_the_deck_initializes_the_96_head_as_venus_does():
-    deck, _ = build_deck(load_deck_config(str(ROOT / "config" / "reference" / "plr_deck.json")))
+    deck, _ = build_deck(load_deck_config(str(ROOT / INSTRUMENT_DECK)))
     sent = {}
 
     async def send_command(**kwargs):
@@ -132,21 +132,19 @@ def lay_deck():
     return deck_config_from_lay(lay, load_venus_map(ROOT))[0]
 
 
-def test_ahc_gets_the_real_deck_it_can_build_and_hears_about_the_rest():
-    layout, problems, warnings = to_ahc_layout(lay_deck(), load_ahc_types(ROOT))
+AHC_COPY = dict(root=ROOT, plugins=ROOT / "no-ahc-installed-here")  # the repo's copy of AHC's list, on any machine
+
+
+def test_ahc_gets_the_whole_real_deck_and_hears_where_its_models_differ():
+    layout, problems, warnings = to_ahc_layout(lay_deck(), load_ahc_types(**AHC_COPY))
     tips = next(c for c in layout["carriers"] if c["type"] == "TIP_CAR_480_A00")
     assert tips["track"] == 7 and tips["sites"]["4"] == {"name": "STF_L_0001", "type": "hamilton_96_tiprack_300uL_filter"}
-    assert sorted(p.split()[0] for p in problems) == ["Cos_96_PCR_0001", "Cos_96_PCR_0002"]
+    assert problems == []
+    plates = next(c for c in layout["carriers"] if c["type"] == "PLT_CAR_L5_DWP")["sites"]
+    assert {s["name"]: s["type"] for s in plates.values()} == {  # VENUS's PCR plate, by its declared AHC equivalent
+        "Cos_96_PCR_0001": "Cor_96_wellplate_360ul_Fb", "Cos_96_PCR_0002": "Cor_96_wellplate_360ul_Fb"}
     assert "PLT_CAR_L5_DWP" in warnings[0] and "0.80 mm" in warnings[0]
-
-
-def test_ahc_names_are_matched_ignoring_case_only():
-    deck = load_deck_config(str(ROOT / "config" / "reference" / "plr_deck.json"))
-    layout, problems, _ = to_ahc_layout(deck, load_ahc_types(ROOT), {"reservoir_50ml": 8000})
-    plate_carrier = next(c for c in layout["carriers"] if c["name"] == "plate_carrier")
-    assert plate_carrier["sites"]["0"]["type"] == "Cor_96_wellplate_360ul_Fb"  # cor_96_wellplate_360uL_Fb here
-    assert any("Trough_CAR_5R60_A00" in p for p in problems)  # not renamed to AHC's 4R200 trough carrier
-    assert any("8000 uL" in p for p in problems)
+    assert sum("Cos_96_PCR goes to AHC as Cor_96_wellplate_360ul_Fb" in w for w in warnings) == 2
 
 
 # --- the real deck as ground truth ---
@@ -157,9 +155,8 @@ def instrument_deck():
 
 def test_the_instrument_deck_is_the_venus_layout():
     deck = instrument_deck()
-    assert not is_reference(deck) and deck["instrument"] == "config/instrument/starlet_F553.json"
+    assert deck["instrument"] == "config/instrument/starlet_F553.json"
     assert {lid for lid, s in deck["labware"].items() if s["kind"] == "plate"} == {"Cos_96_PCR_0001", "Cos_96_PCR_0002"}
-    assert is_reference(load_deck_config(str(ROOT / REFERENCE_DECK)))
 
 
 def test_a_layout_with_an_unbuildable_item_is_not_a_deck(monkeypatch):
@@ -179,8 +176,6 @@ def test_a_layout_with_an_unbuildable_item_is_not_a_deck(monkeypatch):
 def test_plate_limits_come_from_venus_geometry_and_policy():
     pcr = labware_limits(instrument_deck())["plates"]["Cos_96_PCR_0001"]["well_specifications"]["well_volume_range"]
     assert (pcr["min_ul"], pcr["max_ul"], pcr["capacity_ul"]) == (30, 260.7, 289.7)  # 0.9 of VENUS's 289.7 uL
-    reference = labware_limits(load_deck_config(str(ROOT / REFERENCE_DECK)))["plates"]["corning_3595"]
-    assert reference["well_specifications"]["well_volume_range"]["max_ul"] == 330  # the reference deck keeps its numbers
 
 
 def test_the_verifier_tracks_each_plate_on_its_own(tmp_path):

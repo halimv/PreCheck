@@ -215,9 +215,53 @@ def position_checks(pairs: Dict[str, str], deck_config: Dict[str, Any]) -> List[
         a1 = res[lid].get_item("A1")
         c = a1.get_absolute_location() + a1.center()
         add(lid, "A1", (c.x, c.y), (by_id[lid]["x"], by_id[lid]["y"]))
+    checks += height_checks(pairs, deck_config, deck, res)
     waste = next((i for i in by_id.values() if i["type"].lower() == "waste2"), None)
     if waste is not None:
         add("waste", "tip waste x", (deck.get_trash_area().get_absolute_location().x, 0.0), (waste["x"], 0.0), only_x=True)
+    return checks
+
+
+def height_checks(pairs: Dict[str, str], deck_config: Dict[str, Any], deck: Any, res: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """PyLabRobot's heights against VENUS's, in mm: each carrier's height on the deck, where a tip's top and end
+    are (what a pickup is computed from) and where a plate well's cavity starts (what an aspirate is). VENUS's
+    come from the layout itself (each item's ZTrans: its height on this deck) plus the labware's definition in
+    the library: the rack's container base (.rck) and the container's depth (.ctr)."""
+    from pipeline.venus_labware import ROOT, find, read_cfg
+
+    types = json.loads((ROOT / VENUS_LABWARE).read_text())["labware"]
+    lay_z, n = {}, 1
+    while f"Labware.{n}.Id" in pairs:
+        if pairs.get(f"Labware.{n}.ZTrans") not in (None, ""):
+            lay_z[pairs[f"Labware.{n}.Id"]] = float(pairs[f"Labware.{n}.ZTrans"])
+        n += 1
+    checks = []
+
+    def add(lid: str, what: str, plr_z: float, venus_z: float) -> None:
+        dz = plr_z - venus_z
+        checks.append({"id": lid, "what": what, "plr": [round(plr_z, 2)], "lay": [round(venus_z, 2)],
+                       "dx": 0.0, "dy": 0.0, "dz": round(dz, 2), "ok": abs(dz) <= TOLERANCE_MM})
+
+    for spec in deck_config["carriers"]:
+        if spec["name"] in lay_z:
+            carrier = next(c for c in deck.children if c.name == spec["name"])
+            add(spec["name"], "carrier height", carrier.get_absolute_location().z, lay_z[spec["name"]])
+    for lid, spec in deck_config["labware"].items():
+        rack_file = spec.get("venus") or types.get(spec.get("venus_type"), {}).get("venus")
+        if spec["kind"] not in ("tip_rack", "plate") or not rack_file or lid not in lay_z:
+            continue
+        rck = read_cfg(find(rack_file))
+        ctr = read_cfg(find(rck["Cntr.1.file"]))
+        base = lay_z[lid] + float(rck["Cntr.1.base"])  # the bottom of VENUS's container
+        a1 = res[lid].get_item("A1")
+        if spec["kind"] == "tip_rack":
+            tip = a1.get_tip()
+            end = tip.get_absolute_location().z
+            add(lid, "tip top height", end + tip.get_size_z(), base + float(ctr["Depth"]))
+            add(lid, "tip end height", end, base)
+        else:
+            add(lid, "well bottom height", a1.get_absolute_location().z + a1.material_z_thickness,
+                base + float(ctr["BaseMM"]))
     return checks
 
 

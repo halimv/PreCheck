@@ -1,0 +1,43 @@
+# AHC layout exported by LLNL Capstone Precheck (pipeline/ahc_export.py) at 2026-11-12T20:19:17.
+# Source: healed/serial_1_10_dilution_of_culture_in_0_9_saline_20261112-201817_r2.json
+# AHC'S MODEL DIFFERS FROM VENUS HERE (AHC uses PyLabRobot's definition):
+#   - carrier PLT_CAR_L5_DWP_0001: AHC builds PyLabRobot's PLT_CAR_L5_DWP, which differs from VENUS (position 5 y: PyLabRobot 8.2, VENUS 9 (-0.80 mm), and 9 more)
+#   - dilution_plate: VENUS's Cos_96_PCR goes to AHC as Cor_96_wellplate_360ul_Fb (AHC has no PCR plate, so it gets the 96-well plate AHC has run on this carrier: on a PLT_CAR_L5_DWP its wells are 0.4 mm off in x, their bottom 0.86 mm higher, 10.67 mm deep where VENUS says 20.5, and 360 uL where VENUS says 290)
+#   - Cos_96_PCR_0001: VENUS's Cos_96_PCR goes to AHC as Cor_96_wellplate_360ul_Fb (AHC has no PCR plate, so it gets the 96-well plate AHC has run on this carrier: on a PLT_CAR_L5_DWP its wells are 0.4 mm off in x, their bottom 0.86 mm higher, 10.67 mm deep where VENUS says 20.5, and 360 uL where VENUS says 290)
+#   - culture: VENUS's RGT_CONT_50ml_A00 goes to AHC as hamilton_1_trough_60mL_Vb (the same Hamilton trough: AHC's model is 19 x 90 mm and 60 mL, VENUS's 20 x 90 mm and 63 mL in 8 connected positions)
+#   - diluent: VENUS's RGT_CONT_50ml_A00 goes to AHC as hamilton_1_trough_60mL_Vb (the same Hamilton trough: AHC's model is 19 x 90 mm and 60 mL, VENUS's 20 x 90 mm and 63 mL in 8 connected positions)
+# Load it with load_layout(name=...); the deck check confirms it before anything moves.
+carriers:
+- name: PLT_CAR_L5_DWP_0001
+  type: PLT_CAR_L5_DWP
+  track: 1
+  sites:
+    '1':
+      name: dilution_plate
+      type: Cor_96_wellplate_360ul_Fb
+    '2':
+      name: Cos_96_PCR_0001
+      type: Cor_96_wellplate_360ul_Fb
+- name: TIP_CAR_480_A00_0001
+  type: TIP_CAR_480_A00
+  track: 7
+  sites:
+    '3':
+      name: STF_L_0002
+      type: hamilton_96_tiprack_300uL_filter
+    '4':
+      name: tips
+      type: hamilton_96_tiprack_300uL_filter
+- name: RGT_CAR_5R60_A00_13
+  type: RGT_CAR_5R60_A00
+  track: 13
+  sites:
+    '3':
+      name: culture
+      type: hamilton_1_trough_60mL_Vb
+    '4':
+      name: diluent
+      type: hamilton_1_trough_60mL_Vb
+liquids:
+  diluent: 5000
+  culture: 500

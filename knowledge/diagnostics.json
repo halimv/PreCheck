@@ -53,21 +53,24 @@
         "Or move this reagent to a container wide enough for 8 channels (a trough), if one is on the deck."
       ],
       "observed": {
-        "seen": 1,
-        "repair_attempts": 1,
-        "resolved": 1,
+        "seen": 2,
+        "repair_attempts": 2,
+        "resolved": 2,
         "resolved_by": {
-          "replace_step": 1
+          "replace_step": 1,
+          "replace_step+set_initial_volume": 1
         },
         "rejected": {},
         "protocols": [
-          "serial_1_10_dilution_of_culture_in_0_9_saline_20261106-132529.json"
+          "serial_1_10_dilution_of_culture_in_0_9_saline_20261106-132529.json",
+          "serial_dilution_v1.json"
         ],
         "models": [
-          "qwen2.5-coder:7b"
+          "qwen2.5-coder:7b",
+          "claude-haiku-5-5"
         ],
         "first_seen": "2026-11-06",
-        "last_seen": "2026-11-06",
+        "last_seen": "2026-11-12",
         "examples": [
           {
             "date": "2026-11-06",
@@ -76,6 +79,14 @@
             "step": 20,
             "raw_error": "ValueError: Resource is too small to space channels.",
             "outcome": "resolved by replace_step"
+          },
+          {
+            "date": "2026-11-12",
+            "protocol": "serial_dilution_v1.json",
+            "model": "claude-haiku-5-5",
+            "step": 2,
+            "raw_error": "ValueError: Resource is too small to space channels.",
+            "outcome": "resolved by replace_step+set_initial_volume"
           }
         ]
       }

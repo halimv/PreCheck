@@ -132,13 +132,12 @@ function updateStart() {
   if (!d) note = "";
   else if (!d.gate.passed) note = `Blocked: the protocol fails stage "${d.gate.stage}": ${d.gate.summary}`;
   else if (piBlocked) note = `Blocked: ${piBlocked}`;
-  else if (backend === "star" && d.deck_kind === "reference") note = "Blocked: drafted for the reference simulation deck, not the instrument's.";
   else if (backend === "star" && layoutMismatch) note = `Blocked: the Venus layout ${state.layout.name} does not match this protocol's deck.`;
   else if (backend === "star" && !allChecked) note = "Confirm every setup item before running on the STARlet.";
   else if (backend === "star") note = "Starts the real instrument. Run the tip check first, with water before samples.";
   $("run-note").textContent = note;
   $("start").disabled = running || !d || !d.gate.passed || !!piBlocked
-    || (backend === "star" && (!allChecked || layoutMismatch || d.deck_kind === "reference"));
+    || (backend === "star" && (!allChecked || layoutMismatch));
 }
 
 // ---------- protocol selection ----------
@@ -166,9 +165,7 @@ async function loadProtocol(name) {
   if (revisions.length) $("assumptions-panel").hidden = false;
 
   const real = d.real_deck;
-  $("deck-note-real").textContent = real.warning || (real.reference
-    ? `This protocol was drafted for the reference simulation deck, so nothing on the real deck is marked.`
-    : "");
+  $("deck-note-real").textContent = real.warning || "";
   $("deck-card").hidden = false;
   $("checklist-card").hidden = false;
   // The instrument library's VENUS layout is the default; a .lay loaded on this page replaces it.
@@ -192,6 +189,8 @@ async function loadList() {
     const label = `${p.protocol_name}${revision ? ` (revision ${revision[1]})` : ""}`;
     select.append(el("option", { value: p.name, text: `${label} · ${p.step_count} steps · ${when}` }));
   }
+  const asked = new URLSearchParams(location.search).get("protocol");  // the Check page links here by name
+  if (asked && items.some((p) => p.name === asked)) select.value = asked;
   select.addEventListener("change", () => loadProtocol(select.value));
   loadProtocol(select.value);
 }
@@ -228,13 +227,7 @@ function renderLayout() {
   $("layout-title").textContent = `Venus layout: ${l.name}${l.library ? " (instrument library)" : ""}`;
   $("layout-meta").textContent = `${l.deck_file} · Venus ${l.venus_version || "?"} · ${l.items.length} items`;
   const cmp = l.comparison;
-  const reference = state.detail && state.detail.deck_kind === "reference";
-  if (cmp && reference) {
-    $("layout-verdict").replaceChildren(badge("warn", "reference deck"),
-      ` This protocol was drafted for ${state.detail.deck_file}, the hand-written simulation deck, not for the deck on`
-      + ` the STARlet. It cannot run on the instrument: draft it again for the instrument's deck`
-      + ` (python pipeline.py <protocol> --deck config/instrument/ahc_deck.lay).`);
-  } else if (cmp) {
+  if (cmp) {
     $("layout-verdict").replaceChildren(cmp.ok
       ? badge("ok", "matches")
       : badge("bad", "does not match"),
@@ -252,10 +245,11 @@ function renderLayout() {
     table(["Item", "Problem", "What to do"], l.problems.map((p) => [p.id, p.problem, p.fix || ""])),
   ] : []));
   $("layout-positions").replaceChildren(
-    el("h4", { text: "PyLabRobot positions vs the .lay" }),
-    table(["Item", "Point", "PyLabRobot (x, y mm)", ".lay (x, y mm)", "Difference"], l.positions.map((p) => [
+    el("h4", { text: "PyLabRobot positions and heights vs VENUS" }),
+    table(["Item", "Point", "PyLabRobot (mm)", "VENUS (mm)", "Difference"], l.positions.map((p) => [
       p.id, p.what, p.plr.map(fmt).join(", "), p.lay.map(fmt).join(", "),
-      p.ok ? badge("ok", "≤ 0.5 mm") : badge("bad", `dx ${fmt(p.dx)}, dy ${fmt(p.dy)}`)])));
+      p.ok ? badge("ok", "≤ 0.5 mm")
+        : badge("bad", p.dz !== undefined ? `dz ${fmt(p.dz)}` : `dx ${fmt(p.dx)}, dy ${fmt(p.dy)}`)])));
 }
 
 async function uploadLayout() {

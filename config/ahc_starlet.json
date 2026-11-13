@@ -1,7 +1,18 @@
 {
-  "description": "The carriers and labware AHC's Hamilton STARlet accepts in a layout, copied from AHC 0.9.0 (github.com/xthomaswang/ahc, src/ahc/devices/hamilton/starlet.md, `layout`, 2026-11-11). pipeline/ahc_export.py exports only these; AHC refuses anything else (carrier_not_allowed). AHC runs PyLabRobot 1.0, whose names can differ from 0.2.2's in case only (Cor_96_wellplate_360ul_Fb here, cor_96_wellplate_360uL_Fb in this pipeline), so names are matched ignoring case. Update this list when AHC adds types.",
+  "description": "What AHC's Hamilton STARlet accepts in a layout, and how VENUS labware that PyLabRobot does not define goes to AHC. `carriers`, `labware` and `tracks` are a fallback copy of AHC 0.9.3 (github.com/xthomaswang/ahc, src/ahc/devices/hamilton/starlet.md, `layout`, 2026-11-12): pipeline/ahc_export.py reads the installed AHC plugin's own list when it finds one, so a newer AHC needs no edit here. Names are matched ignoring case. `equivalents` is by VENUS type: the AHC type that stands for the same physical item, with what differs. Add an entry when the deck holds VENUS labware that AHC models under another name.",
+  "version": "0.9.3",
   "tracks": {"min": 1, "max": 30},
-  "carriers": ["TIP_CAR_480_A00", "PLT_CAR_L5AC_A00", "PLT_CAR_L5_DWP", "Trough_CAR_4R200_A00"],
-  "labware": ["hamilton_96_tiprack_300uL_filter", "hamilton_96_tiprack_1000uL_filter",
-              "Cor_96_wellplate_360ul_Fb", "cor_96_wellplate_2mL_Vb", "Hamilton_1_trough_200ml_Vb"]
+  "carriers": ["TIP_CAR_480_A00", "PLT_CAR_L5AC_A00", "PLT_CAR_L5MD_A00", "PLT_CAR_L5_DWP", "Trough_CAR_4R200_A00", "RGT_CAR_5R60_A00"],
+  "labware": ["hamilton_96_tiprack_300uL_filter", "hamilton_96_tiprack_300uL", "hamilton_96_tiprack_1000uL_filter", "hamilton_96_tiprack_1000uL",
+              "Cor_96_wellplate_360ul_Fb", "cor_96_wellplate_2mL_Vb", "Hamilton_1_trough_200ml_Vb", "hamilton_1_trough_60mL_Vb"],
+  "equivalents": {
+    "RGT_CONT_50ml_A00": {
+      "type": "hamilton_1_trough_60mL_Vb",
+      "note": "the same Hamilton trough: AHC's model is 19 x 90 mm and 60 mL, VENUS's 20 x 90 mm and 63 mL in 8 connected positions"
+    },
+    "Cos_96_PCR": {
+      "type": "Cor_96_wellplate_360ul_Fb",
+      "note": "AHC has no PCR plate, so it gets the 96-well plate AHC has run on this carrier: on a PLT_CAR_L5_DWP its wells are 0.4 mm off in x, their bottom 0.86 mm higher, 10.67 mm deep where VENUS says 20.5, and 360 uL where VENUS says 290"
+    }
+  }
 }

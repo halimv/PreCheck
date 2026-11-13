@@ -119,65 +119,7 @@ class Scripted:
         return self.replies.pop(0) if self.replies else {"reasoning": "", "edits": []}
 
 
-def heal_demo(tmp_path, *replies, max_rounds=2):
-    demo = json.loads((ROOT / "protocols" / "plate_wash_incubate_demo.json").read_text())
-    config = ROOT / "config"
-    healer = SelfHealer(load_deck_config(str(config / "reference" / "plr_deck_plate_assay.json")), Scripted(*replies), str(tmp_path / "work"))
-    return healer.heal(demo, max_rounds=max_rounds)
-
-
-@pytest.fixture
-def kb_copy(tmp_path):
-    """A copy of the knowledge base with nothing recorded yet."""
-    kb = json.loads(diagnostics.KNOWLEDGE_BASE.read_text())
-    for entry in kb["entries"]:
-        entry.pop("observed", None)
-    path = tmp_path / "diagnostics.json"
-    path.write_text(json.dumps(kb))
-    return path
-
-
 def observed(path, entry_id):
     return next(e for e in json.loads(path.read_text())["entries"] if e["id"] == entry_id)["observed"]
 
 
-LOAD_MORE = {"op": "set_initial_volume", "labware": "wash_buffer_trough", "volume_ul": 7050}
-LOWER = {"op": "replace_step", "step": 28, "new_steps": [
-    {"action": "aspirate", "labware": "wash_buffer_trough", "volume_ul": 100, "channels": list(range(8))}]}
-
-
-def test_a_healing_run_is_recorded(tmp_path, kb_copy):
-    result = heal_demo(tmp_path, {"reasoning": "", "edits": [LOAD_MORE]})
-    assert result.status == "HEALED"
-    assert diagnostics.record_run(result.rounds, "demo.json", "qwen", kb_copy, datetime.date(2026, 10, 30)) \
-        == ["insufficient_liquid.loaded_reagent"]
-    obs = observed(kb_copy, "insufficient_liquid.loaded_reagent")
-    assert (obs["seen"], obs["repair_attempts"], obs["resolved"]) == (1, 1, 1)
-    assert obs["resolved_by"] == {"set_initial_volume": 1}
-    assert obs["examples"][0]["outcome"] == "resolved by set_initial_volume"
-    assert obs["examples"][0]["step"] == 28 and "TooLittleLiquidError" in obs["examples"][0]["raw_error"]
-    # The curated part is untouched and the file still loads.
-    diagnostics.knowledge_base.cache_clear()
-    assert diagnostics.knowledge_base(kb_copy)[1]["fixes"] == diagnostics.knowledge_base()[1]["fixes"]
-
-
-def test_rejections_accumulate_across_runs(tmp_path, kb_copy):
-    for _ in range(2):
-        result = heal_demo(tmp_path, {"reasoning": "", "edits": [LOWER]}, max_rounds=1)
-        assert result.status == "GAVE_UP"
-        diagnostics.record_run(result.rounds, "demo.json", "qwen", kb_copy)
-    obs = observed(kb_copy, "insufficient_liquid.loaded_reagent")
-    # Each run: round 0 fails, its edit is rejected; round 1 fails again with no rounds left.
-    assert (obs["seen"], obs["repair_attempts"], obs["resolved"]) == (4, 0, 0)
-    assert obs["rejected"] == {"intent guard: moves a different volume": 2}
-    assert [e["outcome"] for e in obs["examples"]] == ["all edits rejected", "no repair attempted (out of rounds)"] * 2
-    assert obs["protocols"] == ["demo.json"]
-
-
-def test_examples_are_capped(tmp_path, kb_copy):
-    result = heal_demo(tmp_path, max_rounds=0)
-    for _ in range(diagnostics.MAX_EXAMPLES + 3):
-        diagnostics.record_run(result.rounds, "demo.json", "qwen", kb_copy)
-    obs = observed(kb_copy, "insufficient_liquid.loaded_reagent")
-    assert obs["seen"] == diagnostics.MAX_EXAMPLES + 3
-    assert len(obs["examples"]) == diagnostics.MAX_EXAMPLES

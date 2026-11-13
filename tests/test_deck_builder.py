@@ -38,7 +38,7 @@ def by_type(kind):
 def test_the_catalog_reads_venus_labware_by_its_structure():
     assert "Cos_96_PCR" in by_type("plate")
     assert by_type("tip_rack")["STF_L"]["tip_volume_ul"] == 300 and by_type("tip_rack")["STF_L"]["filter"]
-    assert by_type("reservoir")["RGT_CONT_50ml_A00"]["capacity_ul"] == 7875.0  # VENUS's container, not the name
+    assert by_type("reservoir")["RGT_CONT_50ml_A00"]["capacity_ul"] == 63000.0  # VENUS's 8 connected positions of 7875 uL
     assert by_type("tube_rack")["Car24_Cup15x100"]["positions"] == 24
     assert "RGT_CAR_5R60_A00" in by_type("carrier")
     excluded = {e["venus_type"].lower() for e in catalog()}
@@ -79,7 +79,8 @@ def test_the_built_deck_names_labware_by_ir_name_and_keeps_the_rest():
     assert config["labware"]["tips"]["venus_id"] == "STF_L_0001"
     assert "STF_L_0002" in config["labware"]  # still on the deck, unused
     _, res = build_deck(config)
-    assert res["saline"].max_volume == pytest.approx(7875.0)
+    assert res["saline"].max_volume == pytest.approx(63000.0)  # the whole trough: 8 connected positions
+    assert res["saline"].get_size_y() == pytest.approx(77.5) and len(res["saline"].venus_access_y) == 8
 
 
 def test_two_tubes_share_one_new_tube_rack():
@@ -177,15 +178,6 @@ def test_the_execute_page_draws_the_real_deck_with_what_the_protocol_adds():
     assert sites["saline"]["added"]
     assert "STF_L_0002" in sites and not sites["STF_L_0002"]["used"]  # on the deck, not used
     assert view["drawing"]["show_use"] and view["warning"] is None
-
-
-def test_a_reference_protocol_is_drawn_on_the_real_deck_with_nothing_marked():
-    import demo.server as server
-
-    reference = load_deck_config(str(ROOT / "config" / "reference" / "plr_deck.json"))
-    view = server._real_deck_view({"steps": [{"action": "aspirate", "labware": "corning_3595"}]}, reference)
-    assert view["reference"] and not view["drawing"]["show_use"]
-    assert {c["name"] for c in view["drawing"]["carriers"]} == {"PLT_CAR_L5_DWP_0001", "TIP_CAR_480_A00_0001"}
 
 
 def test_built_decks_serialize_for_the_visualizer():

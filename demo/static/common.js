@@ -1,4 +1,4 @@
-// Helpers shared by the live demo page (app.js) and the benchmark page (benchmark.js).
+// Helpers shared by the Check page (app.js) and the Execute page (execute.js).
 // All model and protocol text goes through textContent.
 
 function el(tag, attrs = {}, ...children) {
@@ -133,4 +133,44 @@ function renderEdit(edit) {
       steps.length ? el("ul", {}, ...steps.map((s) => el("li", { class: "mono", text: describeStep(s) }))) : null);
   }
   return el("li", { class: "mono", text: JSON.stringify(edit) });
+}
+
+// ---------- hover explanations ----------
+// Any element with data-tip shows its text in one floating box on hover or keyboard focus. Explanations live
+// here so labels and buttons can stay short.
+(function () {
+  let box = null;
+  const hide = () => { if (box) box.hidden = true; };
+  const show = (target) => {
+    if (!box) {
+      box = el("div", { id: "tip", role: "tooltip" });
+      document.body.append(box);
+    }
+    box.textContent = target.getAttribute("data-tip");
+    box.hidden = false;
+    const r = target.getBoundingClientRect();
+    const b = box.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - b.width / 2, window.innerWidth - b.width - 8));
+    const below = r.bottom + 8;
+    box.style.left = `${left}px`;
+    box.style.top = `${below + b.height > window.innerHeight - 8 ? Math.max(8, r.top - b.height - 8) : below}px`;
+  };
+  const tipped = (e) => (e.target instanceof Element ? e.target.closest("[data-tip]") : null);
+  document.addEventListener("mouseover", (e) => { const t = tipped(e); if (t) show(t); else hide(); });
+  document.addEventListener("focusin", (e) => { const t = tipped(e); if (t) show(t); else hide(); });
+  document.addEventListener("focusout", hide);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+  window.addEventListener("scroll", hide, true);
+})();
+
+// A small "i" that explains what sits next to it.
+function info(text) {
+  return el("button", { type: "button", class: "info", "data-tip": text, "aria-label": text, text: "i" });
+}
+
+function table(headers, rows) {
+  return el("table", { class: "tbl" },
+    el("thead", {}, el("tr", {}, ...headers.map((h) => el("th", { text: h })))),
+    el("tbody", {}, ...rows.map((cells) => el("tr", {}, ...cells.map((c) =>
+      (c instanceof Node ? el("td", {}, c) : el("td", { class: typeof c === "number" ? "num" : "", text: typeof c === "number" ? fmt(c) : String(c ?? "–") })))))));
 }

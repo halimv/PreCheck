@@ -447,3 +447,86 @@ button.small { padding: 2px 10px; font-size: 0.8rem; margin-left: auto; }
 .progress > div { height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
 .run-log { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow-y: auto; font-family: var(--mono); font-size: 0.82rem; }
 .run-log li { padding: 2px 0; border-bottom: 1px solid var(--border); }
+
+/* ---------- hover explanations (common.js shows one #tip for any [data-tip]) ---------- */
+
+.info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-left: 4px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font: italic 700 0.68rem/1 Georgia, "Times New Roman", serif;
+  vertical-align: 1px;
+  cursor: help;
+  flex: none;
+}
+.info:hover, .info:focus-visible { color: var(--accent); border-color: var(--accent); }
+#tip {
+  position: fixed;
+  z-index: 50;
+  max-width: 300px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+/* ---------- check page ---------- */
+
+textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  resize: vertical;
+  width: 100%;
+}
+textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#source-text, #source-saved { display: flex; flex-direction: column; gap: 6px; }
+.seg button { padding: 5px 10px; font-size: 0.85rem; }
+.seg button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.attach { font-size: 0.82rem; color: var(--accent); cursor: pointer; font-weight: 600; }
+.attach input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.attach:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.hint { color: var(--muted); font-size: 0.82rem; }
+.options { margin: 0; }
+.options[open] { display: flex; flex-direction: column; gap: 12px; }
+.options summary { font-weight: 600; font-size: 0.9rem; }
+
+.flow { list-style: none; display: flex; justify-content: center; gap: 8px 28px; padding: 0; margin: 18px 0 0; flex-wrap: wrap; }
+.flow li { padding: 6px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); cursor: help; font-size: 0.9rem; }
+.flow li { position: relative; }
+.flow li + li::before { content: "→"; color: var(--muted); position: absolute; left: -21px; }
+
+.tbl { border-collapse: collapse; font-size: 0.88rem; width: 100%; }
+.tbl th, .tbl td { padding: 5px 10px 5px 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+.tbl th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
+.tbl td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl tr:last-child td { border-bottom: 0; }
+.flag { color: var(--bad); font-weight: 600; }
+.review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px 28px; }
+.review-grid > div { min-width: 0; overflow-x: auto; }
+
+.suggestions { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.suggestions label { display: flex; gap: 8px; align-items: flex-start; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.suggestions input { margin-top: 4px; }
+.revise { display: flex; gap: 8px; align-items: flex-start; }
+.revise textarea { flex: 1; }
+.block h4 .info { text-transform: none; letter-spacing: 0; }
+.ok-text { color: var(--ok); }
+.divider { text-align: center; color: var(--muted); font-size: 0.85rem; }
+.sidebar { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; }
+@media (max-width: 760px) { .sidebar { position: static; max-height: none; } }
