@@ -38,6 +38,8 @@ precheck "<path to a PDF or text file, or the protocol text itself>" --yes
   `--instrument <file>`, `--labware <VENUS Labware folder>`, `--deck <.lay>`.
 - `--model <name>` runs one model only; `--healer ollama` uses a local model.
 
+To see the same results in the web pages, run `precheck --ui` in the task folder (the Runs page lists every check).
+
 The output ends with the result. There are two outcomes:
 
 - **PASSED: ready for AHC.** The last line names the report: `Report (review, suggestions, files): <path>_report.json`.

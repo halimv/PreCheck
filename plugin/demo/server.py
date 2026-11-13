@@ -34,8 +34,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 from flask import Flask, Response, abort, jsonify, request, send_from_directory
 
-REPO = Path(__file__).resolve().parent.parent
-ROOT = REPO / "plugin"  # the code and the lab's ground truth; the run outputs are in the working folder (pipeline/paths.py)
+ROOT = Path(__file__).resolve().parent.parent  # the plugin: the code and the lab's ground truth; run outputs are in the working folder (pipeline/paths.py)
 sys.path.insert(0, str(ROOT))
 
 from pipeline import diagnostics, proposals  # noqa: E402

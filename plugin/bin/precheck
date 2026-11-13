@@ -4,6 +4,8 @@
 #   precheck protocol.txt --yes       check a protocol, writing healed/, drafts/, decks/, build/ and knowledge/ here
 #   precheck --root                   the plugin folder
 #   precheck --workdir                the folder results are written to
+#   precheck                          the web pages (Check, Runs, Library, Execute) for this folder, in your browser
+#   precheck --ui                     the same
 # Python: $PRECHECK_PYTHON if set; else uv (which installs the pinned dependencies from pyproject.toml); else the
 # repo's .venv; else the conda env $PRECHECK_CONDA_ENV (default: bioinfo) when it exists; else python3.
 set -euo pipefail
@@ -13,6 +15,16 @@ case "${1:-}" in
   --workdir) echo "${PRECHECK_WORKDIR:-$PWD}"; exit 0 ;;
 esac
 export PRECHECK_WORKDIR="${PRECHECK_WORKDIR:-$PWD}"
+if [[ $# -eq 0 || "${1:-}" == "--ui" ]]; then  # no arguments: the web pages
+  port="${PRECHECK_PORT:-8000}"
+  url="http://127.0.0.1:${port}/"
+  echo "PreCheck pages for $PRECHECK_WORKDIR: $url (Ctrl+C to stop)"
+  ( sleep 3; if command -v open >/dev/null 2>&1; then open "$url"; fi ) &
+  if command -v uv >/dev/null 2>&1; then
+    exec uv run --quiet --project "$root" python "$root/demo/server.py" --port "$port"
+  fi
+  exec python3 "$root/demo/server.py" --port "$port"
+fi
 if [[ -n "${PRECHECK_PYTHON:-}" ]]; then
   exec "$PRECHECK_PYTHON" "$root/pipeline.py" "$@"
 elif command -v uv >/dev/null 2>&1; then

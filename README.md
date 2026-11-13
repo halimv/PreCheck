@@ -159,8 +159,10 @@ Full options: `precheck --help`.
 
 ## Demo pages
 
+From the working folder:
+
 ```bash
-python demo/server.py          # then open http://127.0.0.1:8000
+precheck --ui                  # starts the pages and opens them at http://127.0.0.1:8000
 ```
 
 - **Check** (`/`): start a run from text, a file or a saved protocol. It streams the repair rounds, the review and the
@@ -173,7 +175,7 @@ python demo/server.py          # then open http://127.0.0.1:8000
   comparison, has a *Replay in 3D* button, and runs the protocol on ChatterBox or the STARlet, once every setup item is
   ticked.
 
-The demo is a development tool. It reads the code from `plugin/` and writes to the folder it is started in.
+The pages are in `plugin/demo/`. They read the code from `plugin/` and write to the folder they are started in.
 
 ## Hand-off to AHC and the robot
 
@@ -210,7 +212,7 @@ PreCheck/
 │   ├── pyproject.toml, uv.lock    # pinned dependencies (PyLabRobot at the commit AHC uses)
 │   └── requirements.txt           # the same list for pip
 ├── .claude-plugin/marketplace.json  # marketplace: points at plugin/
-├── demo/                          # development demo: server.py and its pages
+├── plugin/demo/                   # the web pages (precheck --ui): server.py and static/
 ├── tests/                         # pytest suite; fixtures in tests/fixtures/
 ├── docs/                          # design notes and the first run report
 ├── notebooks/                     # walkthrough notebook
