@@ -39,24 +39,24 @@ In Claude Code, run these two commands, as you would for AHC:
 
 ```
 /plugin marketplace add halimv/precheck
-/plugin install precheck@precheck-plugin
+/plugin install precheck@precheck
 ```
 
 Or from a terminal:
 
 ```bash
 claude plugin marketplace add halimv/precheck
-claude plugin install precheck@precheck-plugin
+claude plugin install precheck@precheck
 ```
 
-Claude Code downloads the plugin into `~/.claude/plugins/cache/precheck-plugin/precheck/<version>/`.
+Claude Code downloads the plugin into `~/.claude/plugins/cache/precheck/precheck/<version>/`.
 
 ### 2. Give it the path to the VENUS Labware folder
 
 Once, from a terminal:
 
 ```bash
-~/.claude/plugins/cache/precheck-plugin/precheck/0.1.0/bin/precheck --setup --labware "/path/to/Labware"
+~/.claude/plugins/cache/precheck/precheck/0.1.0/bin/precheck --setup --labware "/path/to/Labware"
 ```
 
 The path is saved in `~/.config/precheck/config.json`, outside the plugin, so updates keep it. You can also ask Claude
@@ -65,7 +65,7 @@ Code to check a protocol: if the library is missing, the skill asks you for the 
 ### 3. Check that it is ready
 
 ```bash
-~/.claude/plugins/cache/precheck-plugin/precheck/0.1.0/bin/precheck --setup
+~/.claude/plugins/cache/precheck/precheck/0.1.0/bin/precheck --setup
 ```
 
 It should end with `Ready.` If an item is marked `missing`, it says what to do.
@@ -73,8 +73,8 @@ It should end with `Ready.` If an item is marked `missing`, it says what to do.
 ### Update or remove
 
 ```bash
-claude plugin marketplace update precheck-plugin && claude plugin update precheck@precheck-plugin   # update
-claude plugin uninstall precheck@precheck-plugin && claude plugin marketplace remove precheck-plugin # remove
+claude plugin marketplace update precheck && claude plugin update precheck@precheck   # update
+claude plugin uninstall precheck@precheck && claude plugin marketplace remove precheck # remove
 ```
 
 The saved labware path survives an update. A remove leaves `~/.config/precheck/` in place; delete that folder too if you
