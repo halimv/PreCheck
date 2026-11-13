@@ -14,7 +14,8 @@ from pipeline.deck_builder import catalog, need_errors, resolve
 from pipeline.self_heal import SelfHealer
 from pipeline.venus_labware import VenusLabwareError, volume_equation
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
 
 SERIAL_DILUTION = {
     "tips": {"kind": "tip_rack", "tip_volume_ul": 300, "filter": True},

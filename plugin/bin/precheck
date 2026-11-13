@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# PreCheck. The code and the lab's ground truth stay in the plugin folder (this script's repo); every file a run writes
+# goes into the folder you run it from (PRECHECK_WORKDIR, set below), so results land next to the protocols.
+#   precheck protocol.txt --yes       check a protocol, writing healed/, drafts/, decks/, build/ and knowledge/ here
+#   precheck --root                   the plugin folder
+#   precheck --workdir                the folder results are written to
+# Python: $PRECHECK_PYTHON if set; else uv (which installs the pinned dependencies from pyproject.toml); else the
+# repo's .venv; else the conda env $PRECHECK_CONDA_ENV (default: bioinfo) when it exists; else python3.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+case "${1:-}" in
+  --root) echo "$root"; exit 0 ;;
+  --workdir) echo "${PRECHECK_WORKDIR:-$PWD}"; exit 0 ;;
+esac
+export PRECHECK_WORKDIR="${PRECHECK_WORKDIR:-$PWD}"
+if [[ -n "${PRECHECK_PYTHON:-}" ]]; then
+  exec "$PRECHECK_PYTHON" "$root/pipeline.py" "$@"
+elif command -v uv >/dev/null 2>&1; then
+  exec uv run --quiet --project "$root" python "$root/pipeline.py" "$@"
+elif [[ -x "$root/.venv/bin/python" ]]; then
+  exec "$root/.venv/bin/python" "$root/pipeline.py" "$@"
+elif command -v conda >/dev/null 2>&1 && conda env list 2>/dev/null | grep -qE "^${PRECHECK_CONDA_ENV:-bioinfo}[[:space:]]"; then
+  exec conda run --no-capture-output -n "${PRECHECK_CONDA_ENV:-bioinfo}" python "$root/pipeline.py" "$@"
+else
+  exec python3 "$root/pipeline.py" "$@"
+fi

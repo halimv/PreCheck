@@ -11,8 +11,9 @@ from pipeline.setup_guide import _used_labware
 from pipeline.venus_layout import (LayoutError, compare_with_deck, deck_config_from_lay, import_layout,
                                    load_venus_map, position_checks, read_lay)
 
-ROOT = Path(__file__).resolve().parent.parent
-LAY = ROOT / "tests" / "fixtures" / "venus" / "ahc_deck.lay"
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
+LAY = TESTS / "fixtures" / "venus" / "ahc_deck.lay"
 
 
 def pairs():

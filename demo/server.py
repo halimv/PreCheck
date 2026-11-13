@@ -34,7 +34,8 @@ from typing import Any, Dict, List, Optional
 import yaml
 from flask import Flask, Response, abort, jsonify, request, send_from_directory
 
-ROOT = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parent.parent
+ROOT = REPO / "plugin"  # the code and the lab's ground truth; the run outputs are in the working folder (pipeline/paths.py)
 sys.path.insert(0, str(ROOT))
 
 from pipeline import diagnostics, proposals  # noqa: E402
@@ -51,10 +52,12 @@ from pipeline.venus_layout import LayoutError, compare_with_deck, import_layout 
 from pipeline.stage4_visualizer import VisualizerSession, replay, start_visualizer  # noqa: E402
 from pipeline.stage5_executor import BACKENDS, MODES, ExecutionError, HardwareExecutor  # noqa: E402
 
+from pipeline import paths  # noqa: E402
+
 CONFIG = ROOT / "config"
-PROTOCOLS = ROOT / "protocols"
-WORK = ROOT / "build" / "demo"
-HEALED = ROOT / "healed"  # written by `python pipeline.py ...`
+PROTOCOLS = paths.WORK / "protocols"
+WORK = paths.BUILD / "demo"
+HEALED = paths.HEALED  # written by `python pipeline.py ...` in the working folder
 OLLAMA = "http://localhost:11434"
 UPLOADS = WORK / "uploads"
 CLAUDE_MODELS = [CLAUDE_MODEL, "claude-sonnet-5-5", "claude-opus-5-5"]  # repair models offered; the first is the default
@@ -397,7 +400,7 @@ def _gate(protocol: Dict[str, Any], name: str) -> Dict[str, Any]:
     """Re-run the compiler and simulator on the file as it is now: only a protocol that passes may be executed."""
     healer = SelfHealer(
         deck_config=deck_config_for(protocol, ROOT),
-        backend=None, work_dir=str(ROOT / "build" / "execute" / name),
+        backend=None, work_dir=str(paths.BUILD / "execute" / name),
     )
     gate = healer.evaluate(protocol, 0)
     return {"passed": gate.passed, "stage": gate.stage, "summary": gate.summary}

@@ -2,6 +2,6 @@
   "name": "precheck",
   "owner": {"name": "LLNL Capstone"},
   "plugins": [
-    {"name": "precheck", "source": "./", "description": "Check and repair a liquid-handling protocol against the lab's Hamilton STARlet before it runs"}
+    {"name": "precheck", "source": "./plugin", "description": "Check and repair a liquid-handling protocol against the lab's Hamilton STARlet before it runs"}
   ]
 }

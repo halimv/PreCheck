@@ -13,7 +13,8 @@ from pipeline import diagnostics
 from pipeline.deck import DeviceError, load_deck_config
 from pipeline.self_heal import SelfHealer
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
 
 STATE = {"container_volumes_ul": {"tube_15ml": 40.0}, "unused_tip_columns": {"tips": [4, 5]}}
 PROTOCOL = {"steps": [{"step": 9, "action": "aspirate", "labware": "tube_15ml", "volume_ul": 300, "channels": [0, 1]}],

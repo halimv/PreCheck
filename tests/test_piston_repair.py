@@ -6,19 +6,19 @@ from pathlib import Path
 
 import pytest
 
-import glob
 
 from pipeline.deck import INSTRUMENT_DECK, load_deck_config
 from pipeline.flow import NotPassing, finish
 from pipeline.self_heal import SelfHealer
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
 
 
 @pytest.fixture(scope="module")
 def healer():
     # A protocol-sized deck with a reservoir ("diluent") to draw from and a plate ("dilution_plate") to fill.
-    deck = load_deck_config(glob.glob(str(ROOT / "decks" / "*172546.json"))[0])
+    deck = load_deck_config(str(TESTS / "fixtures" / "serial_deck.json"))
     return SelfHealer(deck, work_dir="build/test_piston")
 
 
@@ -75,8 +75,8 @@ def test_a_changed_hold_is_refused(healer):
 
 
 def test_a_protocol_that_does_not_pass_is_not_written(tmp_path):
-    protocol = json.loads((ROOT / "healed" / "serial_1_10_dilution_of_culture_in_0_9_saline_20261112-172546.json").read_text())
-    deck = load_deck_config(str(ROOT / protocol["deck_config"]))
+    protocol = json.loads((TESTS / "fixtures" / "serial_piston_failing.json").read_text())
+    deck = load_deck_config(str(TESTS / "fixtures" / "serial_deck.json"))
     healed = tmp_path / "healed"
     with pytest.raises(NotPassing) as refused:
         finish(protocol, deck, "not_ready", [], status="HEALED", healed=healed)

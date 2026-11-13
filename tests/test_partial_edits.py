@@ -11,7 +11,8 @@ from pathlib import Path
 from pipeline.deck import load_deck_config
 from pipeline.self_heal import SelfHealer, apply_valid_edits
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
 CONFIG = ROOT / "config"
 ALL = list(range(8))
 

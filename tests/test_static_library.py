@@ -22,7 +22,8 @@ from pipeline.venus_labware import (VenusLabwareError, carrier_sites, check_map,
                                     read_cfg)
 from pipeline.venus_layout import compare_with_deck, deck_config_from_lay, load_venus_map, read_lay
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
 
 
 # --- VENUS's labware library ---

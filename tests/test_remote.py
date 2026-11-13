@@ -17,7 +17,8 @@ from pipeline.deck import load_deck_config
 from pipeline.remote import RemoteExecutor, code_digest, refusal
 from pipeline.stage5_executor import ExecutionError, lock_holder, take_lock
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
 LOCAL = {"name": "test", "host": "localhost", "dir": ".", "python": sys.executable, "star_lock": "unused"}
 
 

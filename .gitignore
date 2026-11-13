@@ -62,3 +62,11 @@ logs/
 
 # Editor workspace (plan saved by the plan editor)
 viz_backend/workspace/
+
+# VENUS labware library: Hamilton software content, kept on each lab machine, not in the repo
+plugin/config/Labware/
+
+# macOS and editor settings
+.DS_Store
+.vscode/
+.claude/

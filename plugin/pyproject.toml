@@ -1,0 +1,20 @@
+[project]
+name = "precheck"
+version = "0.1.0"
+description = "PreCheck: protocol text to a protocol checked and repaired against the lab's Hamilton STARlet"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  # PyLabRobot 1.0.0b1 at the commit AHC pins, so PreCheck and AHC judge a protocol with the same model.
+  "pylabrobot",
+  "pyyaml",
+  "pypdf",
+]
+
+[dependency-groups]
+dev = ["pytest", "flask"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+pylabrobot = { git = "https://github.com/pylabrobot/pylabrobot", rev = "6262d633394cecb76673f31c79f10cb0ab2fa001" }

@@ -11,14 +11,15 @@ from pathlib import Path
 import pytest
 
 from pipeline import ahc_export, design_review, self_heal
-from pipeline.deck import INSTRUMENT_DECK, build_deck, load_deck_config, reach
+from pipeline.deck import deck_config_for, INSTRUMENT_DECK, build_deck, load_deck_config, reach
 from pipeline.instrument import firmware_configuration
 from pipeline.self_heal import ClaudeBackend, OllamaBackend, SelfHealer, make_backend
 from pipeline.stage2_compiler import compile_protocol
 from pipeline.venus_layout import position_checks, read_lay
 
-ROOT = Path(__file__).resolve().parent.parent
-FIXTURE = ROOT / "tests" / "fixtures" / "real_deck_dilution.json"
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
+FIXTURE = TESTS / "fixtures" / "real_deck_dilution.json"
 
 
 @pytest.fixture(scope="module")
@@ -28,7 +29,7 @@ def protocol():
 
 @pytest.fixture(scope="module")
 def deck_config(protocol):
-    return load_deck_config(str(ROOT / protocol["deck_config"]))
+    return deck_config_for(protocol, ROOT)
 
 
 # --- the dry-run backend is the instrument ---

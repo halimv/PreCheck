@@ -11,7 +11,8 @@ from pipeline.setup_guide import setup_checklist
 from pipeline.stage0_drafter import _ReplyPrinter, extract_plan, read_source, structural_errors
 from pipeline.stage5_executor import HardwareExecutor, tip_check_steps
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
 
 
 # The v1 protocol's labware, written as the needs a draft names (its IDs as IR names).

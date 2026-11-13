@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 warnings.simplefilter("ignore")
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent / "plugin"  # the plugin: code and ground truth
+TESTS = Path(__file__).resolve().parent
 REFERENCE_ONLY = {"corning_3595", "reservoir_50ml", "tube_15ml", "hamilton_tiprack_96", "cor_96_wellplate_360uL_Fb"}
 
 
